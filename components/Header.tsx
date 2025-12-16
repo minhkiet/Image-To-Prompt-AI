@@ -40,7 +40,7 @@ export const Header: React.FC = () => {
             Trình Giải Mã <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">Prompt AI</span>
           </h1>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto px-4 mt-4 font-medium leading-relaxed">
-            Tải lên hình ảnh nghệ thuật AI của bạn và để Gemini khám phá câu lệnh "thần chú" đã tạo ra nó.
+            Tải lên hình ảnh nghệ thuật AI của bạn và để trợ lý bé điệu khám phá câu lệnh "thần chú" đã tạo ra nó.
           </p>
         </div>
       </div>
