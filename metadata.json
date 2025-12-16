@@ -1,0 +1,7 @@
+{
+  "name": "Image To Prompt AI",
+  "description": "Tải lên hình ảnh được tạo bởi AI để trích xuất prompt gốc.",
+  "requestFramePermissions": [
+    "clipboard-read"
+  ]
+}

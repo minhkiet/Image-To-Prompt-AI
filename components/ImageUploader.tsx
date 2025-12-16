@@ -1,0 +1,239 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { ImageFile } from '../types';
+
+interface ImageUploaderProps {
+  onImageSelected: (image: ImageFile) => void;
+  disabled?: boolean;
+}
+
+export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, disabled }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!disabled) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const compressImage = (file: File): Promise<{ base64: string, preview: string, mimeType: string }> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_DIMENSION = 1536; // Resize to max 1536px to optimize API speed
+
+          if (width > height) {
+            if (width > MAX_DIMENSION) {
+              height *= MAX_DIMENSION / width;
+              width = MAX_DIMENSION;
+            }
+          } else {
+            if (height > MAX_DIMENSION) {
+              width *= MAX_DIMENSION / height;
+              height = MAX_DIMENSION;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Always convert to JPEG with 0.85 quality for optimal balance
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const base64 = dataUrl.split(',')[1];
+          
+          resolve({
+            base64,
+            preview: dataUrl,
+            mimeType: 'image/jpeg'
+          });
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const processFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn tệp hình ảnh hợp lệ.');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const { base64, preview, mimeType } = await compressImage(file);
+      onImageSelected({
+        file,
+        previewUrl: preview,
+        base64,
+        mimeType
+      });
+    } catch (error) {
+      console.error("Error processing image", error);
+      alert("Có lỗi khi xử lý hình ảnh.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePasteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Stop bubbling to parent which triggers file input
+    if (disabled || isProcessing) return;
+
+    try {
+      // Check if the Clipboard API is supported
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        alert("Trình duyệt của bạn không hỗ trợ nút dán này (yêu cầu kết nối an toàn HTTPS hoặc localhost). Vui lòng sử dụng phím tắt Ctrl+V.");
+        return;
+      }
+
+      const clipboardItems = await navigator.clipboard.read();
+      let found = false;
+
+      for (const item of clipboardItems) {
+        // Prioritize finding an image type
+        const imageType = item.types.find(type => type.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], "pasted_image", { type: imageType });
+          processFile(file);
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        alert("Không tìm thấy hình ảnh nào trong bộ nhớ tạm (Clipboard).");
+      }
+    } catch (error) {
+      console.error("Paste error:", error);
+      // Often permission denied or not focused
+      alert("Không thể dán ảnh. Vui lòng cấp quyền truy cập bộ nhớ tạm hoặc sử dụng phím tắt Ctrl+V.");
+    }
+  };
+
+  // Handle global paste event
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (disabled || isProcessing) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            processFile(file);
+            return;
+          }
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  });
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (disabled || isProcessing) return;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFile(e.target.files[0]);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled || isProcessing) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInputRef.current?.click();
+    }
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-label="Tải ảnh lên"
+      onKeyDown={handleKeyDown}
+      className={`relative group cursor-pointer transition-all duration-300 ease-out border-3 border-dashed rounded-[2rem] p-10 flex flex-col items-center justify-center text-center bg-white shadow-sm hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-purple-200
+        ${isDragging ? 'border-purple-500 bg-purple-50 scale-[1.01] shadow-xl' : 'border-gray-300 hover:border-purple-400'}
+        ${disabled || isProcessing ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}
+      `}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onClick={() => fileInputRef.current?.click()}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        className="hidden"
+        disabled={disabled || isProcessing}
+      />
+      
+      {isProcessing ? (
+        <div className="flex flex-col items-center">
+           <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
+           <p className="text-purple-600 font-medium">Đang tối ưu hóa ảnh...</p>
+        </div>
+      ) : (
+        <>
+          <div className="w-24 h-24 mb-6 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:bg-purple-100 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+
+          <h3 className="text-2xl font-bold text-gray-800 mb-3">Tải ảnh lên</h3>
+          <p className="text-gray-500 text-base max-w-sm mx-auto leading-relaxed mb-6">
+            Kéo thả hoặc nhấp để chọn ảnh
+          </p>
+
+          <button
+            type="button"
+            onClick={handlePasteClick}
+            className="relative z-10 mb-8 flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 shadow-sm hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 hover:shadow-md transition-all duration-200 group/btn"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover/btn:text-purple-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <span>Dán ảnh từ Clipboard</span>
+          </button>
+          
+          <div className="flex gap-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            <span className="bg-gray-100 px-3 py-1 rounded-full">JPG</span>
+            <span className="bg-gray-100 px-3 py-1 rounded-full">PNG</span>
+            <span className="bg-gray-100 px-3 py-1 rounded-full">WEBP</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};

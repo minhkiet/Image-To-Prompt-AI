@@ -1,0 +1,25 @@
+export interface AnalysisResult {
+  prompts: string[];
+  suggestions: string[];
+}
+
+export interface ImageFile {
+  file: File;
+  previewUrl: string;
+  base64: string;
+  mimeType: string;
+}
+
+export interface HistoryItem {
+  id: string;
+  timestamp: number;
+  image: ImageFile;
+  result: AnalysisResult;
+}
+
+export enum AppState {
+  IDLE = 'IDLE',
+  ANALYZING = 'ANALYZING',
+  SUCCESS = 'SUCCESS',
+  ERROR = 'ERROR'
+}
