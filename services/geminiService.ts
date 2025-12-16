@@ -21,39 +21,46 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     };
 
     const promptText = `
-      Đóng vai một Giám đốc Nghệ thuật (Art Director) và Nhiếp ảnh gia Chân dung kỳ cựu (Senior Portrait Photographer). Nhiệm vụ của bạn là giải mã hình ảnh để viết prompt tái tạo, đặc biệt chú trọng vào **THẦN THÁI (Vibe)** và **DÁNG POSE (Body Language)**.
+      Đóng vai một Giám đốc Nghệ thuật (Art Director) và Nhiếp ảnh gia Chân dung chuyên nghiệp (Professional Portrait Photographer) với 20 năm kinh nghiệm. Nhiệm vụ của bạn là giải mã hình ảnh để viết prompt tái tạo, tối ưu hóa cho **THẦN THÁI (Vibe)**, **DÁNG POSE (Posing)** và **GÓC MÁY (Composition)**.
 
-      Hãy phân tích theo quy trình chuyên sâu sau:
+      Hãy phân tích theo quy trình nhiếp ảnh chuyên sâu sau:
 
       **BƯỚC 1: CẤU TRÚC ẢNH (STRUCTURE)**
-      - Xác định đây là ảnh đơn hay ảnh ghép (Grid/Collage).
-      - Nếu là Grid, bắt buộc prompt bắt đầu bằng: "A split screen...", "A photo collage...", "A character sheet...".
+      - Xác định loại ảnh: Portrait, Full body, Macro, Landscape, hay Grid/Collage.
+      - Nếu là Grid, bắt buộc prompt bắt đầu bằng: "A split screen...", "A photo collage...".
 
-      **BƯỚC 2: PHẪU THUẬT THỜI TRANG (FASHION)**
-      - Mô tả trang phục (Outfit), Chất liệu (Fabric texture - rất quan trọng), và Phụ kiện.
+      **BƯỚC 2: PHẪU THUẬT THỜI TRANG & CHỦ THỂ (SUBJECT & FASHION)**
+      - Mô tả chi tiết trang phục (Outfit), nếp gấp vải (Fabric folds/drape), chất liệu (Texture).
+      - Mô tả đặc điểm khuôn mặt nhưng tập trung vào vẻ đẹp tự nhiên (Natural skin texture).
 
-      **BƯỚC 3: DIỄN XUẤT & GÓC MÁY (QUAN TRỌNG NHẤT - THE "PRO" TOUCH)**
-      - **Ánh mắt (The Gaze):** Mô tả hướng nhìn và cảm xúc. VD: "Piercing eye contact with the camera" (nhìn xoáy vào ống kính), "Looking away with longing", "Smizing" (cười bằng mắt).
-      - **Tư thế (The Pose):** Mô tả sự phân bổ trọng lượng cơ thể (Contrapposto), vị trí đặt tay (Natural hand placement). Đảm bảo tư thế trông thoải mái, không bị cứng (stiff).
-      - **Góc máy (Camera Angle):** Low angle (tôn vinh chủ thể), High angle (gợi cảm giác nhỏ bé), Eye-level (chân thực), Dutch angle (năng động).
-      - **Tiêu cự & Kỹ thuật:** Bokeh (xóa phông), Depth of field, Shutter speed (nếu có chuyển động).
+      **BƯỚC 3: DIỄN XUẤT ÁNH MẮT & DÁNG POSE (QUAN TRỌNG NHẤT)**
+      - **Ánh mắt (The Gaze):** Đây là linh hồn bức ảnh. Mô tả chi tiết hướng nhìn, độ mở của mắt, ánh sáng phản chiếu trong mắt (catchlights). VD: "Intense gaze directly at viewer", "Dreamy look looking sideways", "Soft eyes with catchlights".
+      - **Dáng Pose (Body Language):** Phân tích giải phẫu cơ thể. Mô tả tư thế tay (hand placement) sao cho tự nhiên, không bị cứng. Sử dụng các thuật ngữ như "Contrapposto" (dáng đứng chân trụ chân nghỉ), "Fluid pose", "Relaxed shoulders". Đảm bảo tỉ lệ cơ thể hài hòa.
 
-      **BƯỚC 4: ÁNH SÁNG & MÔI TRƯỜNG (LIGHTING & ATMOSPHERE)**
-      - Golden hour, Rembrandt lighting, Softbox studio light, Neon Noir, v.v.
+      **BƯỚC 4: KỸ THUẬT NHIẾP ẢNH (CINEMATOGRAPHY)**
+      - **Góc máy:** Low angle (quyền lực), High angle (vulnerable), Eye-level (personal), Dutch angle (dynamic).
+      - **Bố cục:** Rule of thirds, Center frame, Leading lines.
+      - **Ánh sáng:** Cinematic lighting, Volumetric lighting, Rembrandt, Butterfly lighting, Golden Hour.
+      - **Thiết bị:** 85mm f/1.8 (chân dung xóa phông), 35mm (đời thường), Film grain (nếu có chất vintage).
 
       ---
       **YÊU CẦU OUTPUT JSON:**
       
       - "prompts": Mảng chứa ${count} chuỗi văn bản.
-        *   **Prompt Index 0 (The Replica):** Tái tạo chính xác ảnh gốc. Cấu trúc: "[Structure keyword]. [Subject Description] wearing [Detailed Outfit]. [POSE & EYE CONTACT DESCRIPTION]. [Environment]. [Lighting & Camera settings]."
+        *   **Prompt Index 0 (The Faithful Replica):** Tái tạo chính xác ảnh gốc.
+            - Cấu trúc: "[Structure]. [Subject & Outfit]. [SPECIFIC POSE & EYE CONTACT]. [Environment]. [Lighting & Camera Details]."
         
-        *   **Prompt Index 1 trở đi (Professional Variations):**
-            - Giữ nguyên Nhân vật và Trang phục.
-            - **THAY ĐỔI DÁNG (RE-POSE):** Đề xuất các tư thế khác năng động hơn hoặc giàu cảm xúc hơn. Ví dụ: Nếu ảnh gốc đang đứng, hãy thử "Walking towards camera" hoặc "Sitting elegantly".
-            - **THAY ĐỔI GÓC MÁY:** Thử nghiệm "Extreme close-up on eyes", "Wide angle shot from below".
-            - **QUAN TRỌNG:** Luôn thêm các từ khóa chất lượng cao: *"Masterpiece, highly detailed skin texture, anatomically correct, natural features, professional color grading, 8k resolution".*
+        *   **Prompt Index 1 trở đi (Creative Variations - Đa dạng phong cách):**
+            - Giữ nguyên: Nhân vật và Trang phục.
+            - **THAY ĐỔI DÁNG (DYNAMIC POSING):** Đề xuất các tư thế khác nhau hoàn toàn để tạo bộ ảnh đa dạng.
+              + VD: Đang đi dạo (Walking motion), Vuốt tóc (Hand passing through hair), Ngồi thư thái (Sitting casually), Nhìn qua vai (Looking over shoulder).
+              + *Lưu ý:* Pose phải tự nhiên, tuân thủ giải phẫu học (anatomically correct).
+            - **THAY ĐỔI GÓC NHÌN (FRESH PERSPECTIVES):**
+              + Thử nghiệm góc cận cảnh (Extreme close-up) vào mắt hoặc môi.
+              + Thử nghiệm góc rộng (Wide angle) để lấy bối cảnh hùng vĩ.
+            - **QUALITY BOOSTERS:** Luôn kèm theo: *"Masterpiece, award-winning photography, highly detailed, 8k, natural skin texture, realistic anatomy".*
 
-      - "suggestions": 3-5 gợi ý ngắn gọn (Tiếng Việt) về cách cải thiện bố cục hoặc tư thế (VD: "Thử góc chụp từ dưới lên để chân dài hơn", "Dùng từ khóa 'eye contact' để tăng tương tác").
+      - "suggestions": 3-5 gợi ý ngắn (Tiếng Việt) cho người chụp ảnh để có bức ảnh đẹp hơn (VD: "Nên hất cằm lên một chút để đón ánh sáng", "Thả lỏng vai để dáng tự nhiên hơn").
 
       Đảm bảo JSON hợp lệ. Không markdown.
     `;
@@ -64,7 +71,7 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.4, // Tăng nhẹ để phần biến thể (variations) sáng tạo hơn về dáng pose
+        temperature: 0.5, // Tăng nhẹ để phần biến thể sáng tạo hơn
         topK: 32,
         topP: 0.9,
         responseMimeType: 'application/json',
