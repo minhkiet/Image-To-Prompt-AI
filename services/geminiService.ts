@@ -21,43 +21,41 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     };
 
     const promptText = `
-      Đóng vai một chuyên gia hàng đầu về Reverse Prompt Engineering, Nhiếp ảnh gia Thương mại và Nhà Thiết Kế Thời Trang Kỹ Thuật. Nhiệm vụ của bạn là giải mã hình ảnh này để tạo ra prompt tái tạo chính xác nhất.
+      Đóng vai một Giám đốc Nghệ thuật (Art Director) và Nhiếp ảnh gia Chân dung kỳ cựu (Senior Portrait Photographer). Nhiệm vụ của bạn là giải mã hình ảnh để viết prompt tái tạo, đặc biệt chú trọng vào **THẦN THÁI (Vibe)** và **DÁNG POSE (Body Language)**.
 
-      Hãy thực hiện quy trình phân tích 3 bước sau:
+      Hãy phân tích theo quy trình chuyên sâu sau:
 
-      **BƯỚC 1: PHÂN TÍCH CẤU TRÚC & BỐ CỤC (QUAN TRỌNG NHẤT)**
-      - **Xác định loại ảnh:** Đây là ảnh đơn (Single shot) hay ảnh ghép (Grid/Collage)?
-      - **Nếu là Ảnh Ghép (Grid/Layout):**
-        - Xác định chính xác bố cục: "2x2 grid", "Split screen" (chia đôi), "3-panel triptych", "Character sheet" (bản thiết kế nhân vật với các góc view: front, side, back).
-        - Mô tả nội dung từng phần: Ví dụ "Top left: Close-up of face; Bottom right: Full body shot walking".
-        - **BẮT BUỘC:** Prompt phải bắt đầu bằng từ khóa cấu trúc (VD: "A collage of...", "A split screen showing...", "A character sheet of...").
+      **BƯỚC 1: CẤU TRÚC ẢNH (STRUCTURE)**
+      - Xác định đây là ảnh đơn hay ảnh ghép (Grid/Collage).
+      - Nếu là Grid, bắt buộc prompt bắt đầu bằng: "A split screen...", "A photo collage...", "A character sheet...".
 
-      **BƯỚC 2: PHẪU THUẬT THỜI TRANG (FASHION AUTOPSY)**
-      - **Chất liệu (Fabrication):** Gọi tên chính xác (Satin, Velvet, Distressed Denim, Sheer Organza, Latex, Chunky Knit). Mô tả độ phản quang (matte/glossy) và bề mặt (texture).
-      - **Kiểu dáng (Silhouette):** Oversized, Slim-fit, Drape, Layering, Cut-out.
-      - **Chi tiết (Details):** Cúc áo, đường may, phụ kiện (dây xích, thắt lưng, trang sức).
-      - **Màu sắc:** Dùng mã màu nghệ thuật (Teal, Burgundy, Pastel Lilac, Neon Green).
+      **BƯỚC 2: PHẪU THUẬT THỜI TRANG (FASHION)**
+      - Mô tả trang phục (Outfit), Chất liệu (Fabric texture - rất quan trọng), và Phụ kiện.
 
-      **BƯỚC 3: NHIẾP ẢNH & KHÔNG KHÍ (VIBE)**
-      - Ánh sáng: Cinematic lighting, Natural sunlight, Neon cyber, Studio strobe.
-      - Phong cách: Editorial, Street style, Candid, Cyberpunk, Vintage film (Kodak Portra 400).
+      **BƯỚC 3: DIỄN XUẤT & GÓC MÁY (QUAN TRỌNG NHẤT - THE "PRO" TOUCH)**
+      - **Ánh mắt (The Gaze):** Mô tả hướng nhìn và cảm xúc. VD: "Piercing eye contact with the camera" (nhìn xoáy vào ống kính), "Looking away with longing", "Smizing" (cười bằng mắt).
+      - **Tư thế (The Pose):** Mô tả sự phân bổ trọng lượng cơ thể (Contrapposto), vị trí đặt tay (Natural hand placement). Đảm bảo tư thế trông thoải mái, không bị cứng (stiff).
+      - **Góc máy (Camera Angle):** Low angle (tôn vinh chủ thể), High angle (gợi cảm giác nhỏ bé), Eye-level (chân thực), Dutch angle (năng động).
+      - **Tiêu cự & Kỹ thuật:** Bokeh (xóa phông), Depth of field, Shutter speed (nếu có chuyển động).
+
+      **BƯỚC 4: ÁNH SÁNG & MÔI TRƯỜNG (LIGHTING & ATMOSPHERE)**
+      - Golden hour, Rembrandt lighting, Softbox studio light, Neon Noir, v.v.
 
       ---
       **YÊU CẦU OUTPUT JSON:**
       
-      - "prompts": Một mảng chứa đúng ${count} chuỗi văn bản (strings).
-        *   **Prompt Index 0 (The Replica - Bám sát tuyệt đối):** 
-            - Nếu là ảnh Grid/Ghép: "A [LOẠI GRID/LAYOUT] showing [MÔ TẢ CHI TIẾT TỪNG PHẦN]. The subject is wearing [CHI TIẾT TRANG PHỤC + CHẤT LIỆU]. [MÀU SẮC]. [LIGHTING & CAMERA]."
-            - Nếu là ảnh Đơn: "Professional photography of [Subject] wearing [CHI TIẾT TRANG PHỤC]. [POSE]. [BACKGROUND]. [LIGHTING]."
-            - **Lưu ý:** Ưu tiên độ chính xác về bố cục và chất liệu vải lên hàng đầu.
-            
-        *   **Prompt Index 1 trở đi (Creative Variations):** 
-            - Giữ nguyên mô tả nhân vật và trang phục.
-            - Thay đổi nhẹ về góc chụp hoặc ánh sáng để tạo ra các phiên bản artistic khác (nhưng vẫn giữ đúng bố cục nếu đó là đặc điểm chính của ảnh gốc).
+      - "prompts": Mảng chứa ${count} chuỗi văn bản.
+        *   **Prompt Index 0 (The Replica):** Tái tạo chính xác ảnh gốc. Cấu trúc: "[Structure keyword]. [Subject Description] wearing [Detailed Outfit]. [POSE & EYE CONTACT DESCRIPTION]. [Environment]. [Lighting & Camera settings]."
+        
+        *   **Prompt Index 1 trở đi (Professional Variations):**
+            - Giữ nguyên Nhân vật và Trang phục.
+            - **THAY ĐỔI DÁNG (RE-POSE):** Đề xuất các tư thế khác năng động hơn hoặc giàu cảm xúc hơn. Ví dụ: Nếu ảnh gốc đang đứng, hãy thử "Walking towards camera" hoặc "Sitting elegantly".
+            - **THAY ĐỔI GÓC MÁY:** Thử nghiệm "Extreme close-up on eyes", "Wide angle shot from below".
+            - **QUAN TRỌNG:** Luôn thêm các từ khóa chất lượng cao: *"Masterpiece, highly detailed skin texture, anatomically correct, natural features, professional color grading, 8k resolution".*
 
-      - "suggestions": Danh sách 3-5 gợi ý kỹ thuật ngắn gọn bằng TIẾNG VIỆT để người dùng cải thiện kết quả (Ví dụ: "Thêm từ khóa 'split screen' để chia đôi ảnh", "Sử dụng 'macro shot' để lấy chi tiết vải").
+      - "suggestions": 3-5 gợi ý ngắn gọn (Tiếng Việt) về cách cải thiện bố cục hoặc tư thế (VD: "Thử góc chụp từ dưới lên để chân dài hơn", "Dùng từ khóa 'eye contact' để tăng tương tác").
 
-      Đảm bảo JSON hợp lệ. Không được thêm markdown block (\`\`\`json).
+      Đảm bảo JSON hợp lệ. Không markdown.
     `;
 
     const response = await ai.models.generateContent({
@@ -66,9 +64,9 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.2, // Giảm temperature để tăng độ chính xác, bám sát ảnh gốc
+        temperature: 0.4, // Tăng nhẹ để phần biến thể (variations) sáng tạo hơn về dáng pose
         topK: 32,
-        topP: 0.8,
+        topP: 0.9,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -101,7 +99,6 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
   } catch (error: any) {
     console.error("Lỗi khi gọi Gemini API:", error);
     
-    // Categorize errors for better user feedback
     const msg = error.message || "";
     
     if (msg.includes("API_KEY") || msg.includes("400")) {
@@ -109,15 +106,15 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     }
     
     if (msg.includes("SAFETY") || msg.includes("blocked") || msg.includes("finishReason")) {
-      throw new Error("Hình ảnh bị hệ thống an toàn chặn. Vui lòng thử ảnh khác ít nhạy cảm hơn (tránh ảnh hở hang, bạo lực...).");
+      throw new Error("Hình ảnh bị hệ thống an toàn chặn. Vui lòng thử ảnh khác ít nhạy cảm hơn.");
     }
     
     if (msg.includes("429") || msg.includes("Quota") || msg.includes("resource exhausted")) {
-      throw new Error("Hệ thống đang quá tải hoặc hết hạn ngạch (Quota). Vui lòng đợi 1 phút và thử lại.");
+      throw new Error("Hệ thống đang quá tải hoặc hết hạn ngạch. Vui lòng đợi 1 phút và thử lại.");
     }
     
     if (msg.includes("500") || msg.includes("503") || msg.includes("Failed to fetch")) {
-      throw new Error("Lỗi kết nối mạng hoặc máy chủ Google đang bảo trì. Vui lòng kiểm tra internet và thử lại.");
+      throw new Error("Lỗi kết nối mạng hoặc máy chủ Google đang bảo trì.");
     }
 
     throw new Error(msg || "Đã xảy ra lỗi không xác định khi phân tích hình ảnh.");
