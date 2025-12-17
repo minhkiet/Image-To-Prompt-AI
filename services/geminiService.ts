@@ -21,46 +21,43 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     };
 
     const promptText = `
-      Đóng vai một Giám đốc Nghệ thuật (Art Director) và Nhiếp ảnh gia Chân dung chuyên nghiệp (Professional Portrait Photographer) với 20 năm kinh nghiệm. Nhiệm vụ của bạn là giải mã hình ảnh để viết prompt tái tạo, tối ưu hóa cho **THẦN THÁI (Vibe)**, **DÁNG POSE (Posing)** và **GÓC MÁY (Composition)**.
+      Đóng vai một **Giám đốc Sáng tạo (Creative Director)** và **Nhiếp ảnh gia Thời trang Cao cấp (High-End Fashion Photographer)** của tạp chí Vogue/Harper's Bazaar. Nhiệm vụ của bạn là giải mã hình ảnh để viết prompt tái tạo với độ chính xác tuyệt đối, mang tính thẩm mỹ nghệ thuật cao.
 
-      Hãy phân tích theo quy trình nhiếp ảnh chuyên sâu sau:
+      Hãy thực hiện quy trình phân tích "Lớp Phẫu Thuật Hình Ảnh" (Layered Visual Surgery) sau đây:
 
-      **BƯỚC 1: CẤU TRÚC ẢNH (STRUCTURE)**
-      - Xác định loại ảnh: Portrait, Full body, Macro, Landscape, hay Grid/Collage.
-      - Nếu là Grid, bắt buộc prompt bắt đầu bằng: "A split screen...", "A photo collage...".
+      **LỚP 1: THÔNG SỐ KỸ THUẬT & CHẤT MÀU (FILM LOOK & COLOR GRADING)**
+      - **Camera & Lens:** Xác định tiêu cự (85mm portrait, 35mm street, 100mm macro). Độ sâu trường ảnh (Depth of field/Bokeh).
+      - **Chất màu (Color Palette):** Phân tích tông màu chủ đạo. Có phải là màu phim (Kodak Portra 400, CineStill 800T)? Hay là tông màu kỹ thuật số sắc nét? (Desaturated, Vivid, Pastel, Dark Moody, Teal and Orange).
+      - **Ánh sáng:** Studio Lighting (Softbox, Rembrandt), Natural Light (Golden Hour, Overcast), hay Neon Noir?
 
-      **BƯỚC 2: PHẪU THUẬT THỜI TRANG & CHỦ THỂ (SUBJECT & FASHION)**
-      - Mô tả chi tiết trang phục (Outfit), nếp gấp vải (Fabric folds/drape), chất liệu (Texture).
-      - Mô tả đặc điểm khuôn mặt nhưng tập trung vào vẻ đẹp tự nhiên (Natural skin texture).
+      **LỚP 2: PHẪU THUẬT THỜI TRANG & CHI TIẾT (LUXURY DETAILS)**
+      - **Trang phục (Outfit):** Không chỉ gọi tên. Hãy mô tả **CHẤT LIỆU (Texture)**: Lụa satin bóng, nhung mịn (velvet), len dệt kim (knitted), da thuộc (leather), vải xuyên thấu (sheer). Mô tả cách vải rủ xuống cơ thể (draping).
+      - **Phụ kiện & Trang sức (Jewelry & Accessories - RẤT QUAN TRỌNG):** "Zoom" vào chi tiết. Khuyên tai to bản (Statement earrings), vòng cổ nhiều lớp (Layered necklaces), nhẫn đính đá, gọng kính kim loại, túi xách có vân da cá sấu...
+      - **Trang điểm (Makeup):** Dewy skin, Matte finish, Red bold lips, Graphic eyeliner.
 
-      **BƯỚC 3: DIỄN XUẤT ÁNH MẮT & DÁNG POSE (QUAN TRỌNG NHẤT)**
-      - **Ánh mắt (The Gaze):** Đây là linh hồn bức ảnh. Mô tả chi tiết hướng nhìn, độ mở của mắt, ánh sáng phản chiếu trong mắt (catchlights). VD: "Intense gaze directly at viewer", "Dreamy look looking sideways", "Soft eyes with catchlights".
-      - **Dáng Pose (Body Language):** Phân tích giải phẫu cơ thể. Mô tả tư thế tay (hand placement) sao cho tự nhiên, không bị cứng. Sử dụng các thuật ngữ như "Contrapposto" (dáng đứng chân trụ chân nghỉ), "Fluid pose", "Relaxed shoulders". Đảm bảo tỉ lệ cơ thể hài hòa.
-
-      **BƯỚC 4: KỸ THUẬT NHIẾP ẢNH (CINEMATOGRAPHY)**
-      - **Góc máy:** Low angle (quyền lực), High angle (vulnerable), Eye-level (personal), Dutch angle (dynamic).
-      - **Bố cục:** Rule of thirds, Center frame, Leading lines.
-      - **Ánh sáng:** Cinematic lighting, Volumetric lighting, Rembrandt, Butterfly lighting, Golden Hour.
-      - **Thiết bị:** 85mm f/1.8 (chân dung xóa phông), 35mm (đời thường), Film grain (nếu có chất vintage).
+      **LỚP 3: CHỦ THỂ & THẦN THÁI (SUBJECT & VIBE)**
+      - **Đặc điểm:** Tóc (Kiểu dáng, màu sắc, texture), Màu da tự nhiên (Highly detailed skin texture).
+      - **Posing & Eye Contact:** Ánh mắt là điểm nhấn. Dáng đứng/ngồi phải chuẩn thời trang (High fashion pose, Broken down poses, Fluid motion).
 
       ---
       **YÊU CẦU OUTPUT JSON:**
       
-      - "prompts": Mảng chứa ${count} chuỗi văn bản.
-        *   **Prompt Index 0 (The Faithful Replica):** Tái tạo chính xác ảnh gốc.
-            - Cấu trúc: "[Structure]. [Subject & Outfit]. [SPECIFIC POSE & EYE CONTACT]. [Environment]. [Lighting & Camera Details]."
+      - "prompts": Mảng chứa ${count} chuỗi văn bản Tiếng Anh.
+        *   **Quy tắc chung cho mọi prompt:** Phải bắt đầu bằng các từ khóa định hình phong cách (VD: "Editorial photography, Shot on 35mm film..."). Kết thúc bằng các từ khóa chất lượng cao ("8k, masterpiece, ultra-detailed textures").
         
-        *   **Prompt Index 1 trở đi (Creative Variations - Đa dạng phong cách):**
-            - Giữ nguyên: Nhân vật và Trang phục.
-            - **THAY ĐỔI DÁNG (DYNAMIC POSING):** Đề xuất các tư thế khác nhau hoàn toàn để tạo bộ ảnh đa dạng.
-              + VD: Đang đi dạo (Walking motion), Vuốt tóc (Hand passing through hair), Ngồi thư thái (Sitting casually), Nhìn qua vai (Looking over shoulder).
-              + *Lưu ý:* Pose phải tự nhiên, tuân thủ giải phẫu học (anatomically correct).
-            - **THAY ĐỔI GÓC NHÌN (FRESH PERSPECTIVES):**
-              + Thử nghiệm góc cận cảnh (Extreme close-up) vào mắt hoặc môi.
-              + Thử nghiệm góc rộng (Wide angle) để lấy bối cảnh hùng vĩ.
-            - **QUALITY BOOSTERS:** Luôn kèm theo: *"Masterpiece, award-winning photography, highly detailed, 8k, natural skin texture, realistic anatomy".*
+        *   **Prompt Index 0 (Bản sao hoàn hảo - The Replica):**
+            - Mô tả chính xác 100% ảnh gốc từ góc máy, ánh sáng đến nếp gấp quần áo.
+            - Cấu trúc: "[Medium/Film Stock]. [Subject Description + Makeup]. [DETAILED OUTFIT & JEWELRY]. [Specific Pose & Eye Contact]. [Background/Environment]. [Lighting & Color Grading]."
+        
+        *   **Prompt Index 1 trở đi (Biến thể Lookbook - Consistent Style):**
+            - **QUAN TRỌNG:** Giữ nguyên 100% "Chất màu" (Lớp 1) và "Thời trang/Phụ kiện" (Lớp 2) để tạo sự đồng nhất (Consistency) cho bộ ảnh.
+            - **THAY ĐỔI:** Chỉ thay đổi dáng Pose và Góc máy (Camera Angle).
+            - Ví dụ biến thể:
+                + "A close-up portrait shot focusing on the jewelry and eyes..." (Cận cảnh phụ kiện/mắt).
+                + "Full body shot, subject walking towards camera, dynamic movement..." (Toàn thân, chuyển động).
+                + "Side profile shot, looking at a light source..." (Góc nghiêng).
 
-      - "suggestions": 3-5 gợi ý ngắn (Tiếng Việt) cho người chụp ảnh để có bức ảnh đẹp hơn (VD: "Nên hất cằm lên một chút để đón ánh sáng", "Thả lỏng vai để dáng tự nhiên hơn").
+      - "suggestions": 3-5 gợi ý ngắn gọn (Tiếng Việt) mang tính chuyên môn cao (VD: "Sử dụng key light chếch 45 độ để làm nổi bật khối mặt", "Chú ý texture vải nhung để tăng cảm giác sang trọng").
 
       Đảm bảo JSON hợp lệ. Không markdown.
     `;
@@ -71,9 +68,9 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.5, // Tăng nhẹ để phần biến thể sáng tạo hơn
-        topK: 32,
-        topP: 0.9,
+        temperature: 0.45, // Giữ ở mức vừa phải để đảm bảo tính chính xác của chi tiết thời trang
+        topK: 40,
+        topP: 0.95,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,

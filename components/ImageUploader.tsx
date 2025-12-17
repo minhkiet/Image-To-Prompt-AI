@@ -340,12 +340,26 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
           <button
             type="button"
             onClick={handlePasteClick}
-            className="relative z-10 mb-8 flex items-center gap-2 px-5 py-2.5 bg-white text-gray-700 font-semibold rounded-xl border border-gray-200 shadow-sm hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 hover:shadow-md transition-all duration-200 group/btn active:scale-95"
+            className="relative z-10 mb-8 group/paste-btn overflow-hidden rounded-xl bg-white px-6 py-2.5 text-sm font-bold text-purple-600 shadow-sm ring-1 ring-purple-100 transition-all duration-300 hover:shadow-lg hover:shadow-purple-200/50 hover:ring-transparent active:scale-95"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 group-hover/btn:text-purple-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <span>Dán ảnh từ Clipboard</span>
+            {/* Gradient Background Layer */}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 transition-opacity duration-300 group-hover/paste-btn:opacity-100" />
+            
+            {/* Content Layer */}
+            <div className="relative flex items-center gap-2">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-5 w-5 transition-colors duration-300 group-hover/paste-btn:text-white" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span className="transition-colors duration-300 group-hover/paste-btn:text-white">
+                  Dán ảnh từ Clipboard
+                </span>
+            </div>
           </button>
         </>
       )}
