@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header } from './components/Header';
@@ -6,7 +7,7 @@ import { PromptDisplay } from './components/PromptDisplay';
 import { SuggestionsDisplay } from './components/SuggestionsDisplay';
 import { WhiskGuide } from './components/WhiskGuide';
 import { HistoryList } from './components/HistoryList';
-import { decodeImagePrompt, optimizePrompt, translateText } from './services/geminiService';
+import { decodeImagePrompt, optimizePrompt, translateText, wait } from './services/geminiService';
 import { ImageFile, AppState, AnalysisResult, HistoryItem, PromptItem } from './types';
 
 // Inline Skeleton Component for smoother state transitions
@@ -15,33 +16,30 @@ const SkeletonLoader = () => {
   const [progress, setProgress] = useState(0);
   
   useEffect(() => {
+    // Reduced steps and faster text rotation
     const steps = [
-      'Đang khởi tạo kết nối với Gemini Vision...',
-      'Đang quét chi tiết khuôn mặt và thần thái...',
-      'Đang phân tích chất liệu trang phục và phụ kiện...',
-      'Đang giải mã setup ánh sáng và bố cục...',
-      'Đang trích xuất và dịch thuật văn bản (nếu có)...', // Added translation step
-      'Đang tối ưu hóa Prompt lên mức độ 10/10...',       // Added optimization step
+      'Đang phân tích khuôn mặt & trang phục...',
+      'Đang trích xuất prompt chuẩn Art Director...',
       'Đang hoàn thiện các biến thể...',
     ];
     
     let stepIndex = 0;
     
-    // Rotate text messages every 2.5 seconds
+    // Rotate text messages faster (every 1.2 seconds)
     const textInterval = setInterval(() => {
       stepIndex = (stepIndex + 1) % steps.length;
       setLoadingText(steps[stepIndex]);
-    }, 2500);
+    }, 1200);
 
-    // Simulate progress bar (asymptotic to 95%)
+    // Faster progress bar
     const progressInterval = setInterval(() => {
       setProgress(prev => {
-        // Slow down as it reaches higher percentages
-        const increment = prev < 30 ? 2 : prev < 60 ? 1 : prev < 85 ? 0.5 : 0.1;
+        // Much faster increment to simulate rapid single-pass analysis
+        const increment = prev < 50 ? 8 : prev < 80 ? 4 : 2;
         const next = prev + increment;
-        return next > 95 ? 95 : next;
+        return next > 98 ? 98 : next;
       });
-    }, 100);
+    }, 150); // Faster update tick
 
     return () => {
       clearInterval(textInterval);
@@ -71,9 +69,9 @@ const SkeletonLoader = () => {
         {/* Central Loading Indicator */}
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/60 backdrop-blur-sm">
           <div className="relative w-24 h-24 mb-6">
-             {/* Outer spinning ring */}
+             {/* Outer spinning ring - Faster spin */}
              <div className="absolute inset-0 border-8 border-pink-100 rounded-full"></div>
-             <div className="absolute inset-0 border-8 border-pink-400 rounded-full border-t-transparent animate-spin"></div>
+             <div className="absolute inset-0 border-8 border-pink-400 rounded-full border-t-transparent animate-spin" style={{ animationDuration: '0.6s' }}></div>
              
              {/* Inner pulsing icon */}
              <div className="absolute inset-0 flex items-center justify-center">
@@ -93,13 +91,13 @@ const SkeletonLoader = () => {
              {/* Progress Bar */}
              <div className="w-64 h-3 bg-gray-100 rounded-full overflow-hidden mx-auto shadow-inner border border-gray-200">
                <div 
-                 className="h-full bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300 transition-all duration-300 ease-out"
+                 className="h-full bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300 transition-all duration-100 ease-linear"
                  style={{ width: `${progress}%` }}
                />
              </div>
              
              <p className="text-xs text-gray-400 font-bold font-mono pt-1">
-               AI Processing: {Math.floor(progress)}%
+               Fast Processing: {Math.floor(progress)}%
              </p>
           </div>
         </div>
@@ -302,55 +300,45 @@ const App: React.FC = () => {
     setErrorDetails(null);
 
     try {
-      // Step 1: Initial Analysis
+      // Step 1: Initial Analysis (Now heavily optimized in backend - Single Pass)
+      // This call now generates high-quality prompts directly, skipping the need for a secondary optimization loop.
       let result = await decodeImagePrompt(img.base64, img.mimeType, promptCount);
 
-      // Step 2: Auto-Translate Detected Text to English (if any)
+      // Step 2: Auto-Translate Detected Text (PARALLEL PROCESSING)
+      // Optimized for speed using Promise.all instead of sequential execution
       if (result.detectedTexts && result.detectedTexts.length > 0) {
         try {
-            const translatedTexts = await Promise.all(
-                result.detectedTexts.map(text => translateText(text, 'en'))
-            );
+            // Process all translations concurrently
+            const translationPromises = result.detectedTexts.map(async (text) => {
+                try {
+                    // Translate to English for internal consistency in prompt replacement
+                    return await translateText(text, 'en');
+                } catch (e) {
+                    return text; // Fallback to original if translation fails
+                }
+            });
+
+            const translatedTexts = await Promise.all(translationPromises);
             
-            // Replace the original detected text in the prompts with the translated English text
+            // Apply translated text replacements to prompts
             result.prompts = result.prompts.map(p => {
                 let newText = p.text;
                 result.detectedTexts?.forEach((original, idx) => {
-                   // Global replace of the detected text string
                    if (original && translatedTexts[idx]) {
-                        // Escape special characters for regex if needed, or use simple split/join
                         newText = newText.split(original).join(translatedTexts[idx]);
                    }
                 });
                 return { ...p, text: newText };
             });
 
-            // Update detectedTexts to the English versions so PromptDisplay highlights them correctly
             result.detectedTexts = translatedTexts;
         } catch (err) {
-            console.warn("Auto-translation failed, proceeding with original text.", err);
+            console.warn("Auto-translation failed", err);
         }
       }
 
-      // Step 3: Auto-Optimize All Prompts to Score 10
-      // We process ALL prompts to ensure they meet the 10/10 standard automatically
-      try {
-          const optimizedPrompts = await Promise.all(result.prompts.map(async (p) => {
-             // Even if score is high, we pass it through optimization to ensure consistent "10/10" style
-             // or simply keep existing logic if it's already 10. 
-             // Request says "auto optimize... level 10". 
-             // To be safe and fast, we skip if it is ALREADY 10, but usually initial decode is ~8-9.
-             if ((p.score || 0) < 10) {
-                 return await optimizePrompt(p.text);
-             }
-             return p;
-          }));
-          result.prompts = optimizedPrompts;
-      } catch (err) {
-          console.warn("Auto-optimization failed, proceeding with initial prompts.", err);
-      }
+      // NO Step 3 loop. We trust decodeImagePrompt to give high-score results immediately.
 
-      // Final Step: Set State
       setAnalysisResult(result);
       setAppState(AppState.SUCCESS);
       addToHistory(img, result);
@@ -381,7 +369,6 @@ const App: React.FC = () => {
         
         setAnalysisResult(newResult);
         
-        // Update History to save the optimization
         setHistory(prev => {
             if (prev.length === 0) return prev;
             const updated = [...prev];
@@ -402,7 +389,6 @@ const App: React.FC = () => {
     const currentPrompts = analysisResult.prompts;
     const indexesToOptimize: number[] = [];
 
-    // Identify prompts that need optimization (Score < 10)
     currentPrompts.forEach((p, idx) => {
         if ((p.score || 0) < 10) {
             indexesToOptimize.push(idx);
@@ -412,23 +398,23 @@ const App: React.FC = () => {
     if (indexesToOptimize.length === 0) return;
 
     try {
-        const promises = indexesToOptimize.map(async (index) => {
-             const originalItem = currentPrompts[index];
-             try {
-                 const optimizedItem = await optimizePrompt(originalItem.text);
-                 return { index, item: optimizedItem };
-             } catch (e) {
-                 console.warn(`Failed to optimize prompt at index ${index}`, e);
-                 return { index, item: originalItem }; // Keep original on failure
-             }
-        });
-
-        const results = await Promise.all(promises);
-
         const newPrompts = [...currentPrompts];
-        results.forEach(({ index, item }) => {
-            newPrompts[index] = item;
-        });
+        
+        // Parallel Optimization with concurrency limit (3 at a time) for manual optimization
+        const batchSize = 3;
+        for (let i = 0; i < indexesToOptimize.length; i += batchSize) {
+            const batch = indexesToOptimize.slice(i, i + batchSize);
+            await Promise.all(batch.map(async (index) => {
+                 try {
+                     const originalItem = currentPrompts[index];
+                     const optimizedItem = await optimizePrompt(originalItem.text);
+                     newPrompts[index] = optimizedItem;
+                 } catch (e) {
+                     console.warn(`Failed to optimize prompt at index ${index}`);
+                 }
+            }));
+            if (i + batchSize < indexesToOptimize.length) await wait(1000); // Small delay between batches
+        }
 
         const newResult = {
             ...analysisResult,
@@ -437,7 +423,6 @@ const App: React.FC = () => {
 
         setAnalysisResult(newResult);
 
-        // Update History
         setHistory(prev => {
             if (prev.length === 0) return prev;
             const updated = [...prev];
@@ -449,7 +434,7 @@ const App: React.FC = () => {
 
     } catch (e: any) {
         console.error("Bulk optimization failed", e);
-        alert("Có lỗi xảy ra khi tối ưu hóa hàng loạt. Vui lòng thử lại.");
+        alert("Có lỗi xảy ra khi tối ưu hóa hàng loạt. Vui lòng thử lại sau.");
     }
   };
 
@@ -740,111 +725,80 @@ const App: React.FC = () => {
                           <div className="bg-white rounded-[2.5rem] p-8 text-center border-4 border-white shadow-xl animate-fade-in flex flex-col items-center gap-4">
                               <div className="w-24 h-24 bg-purple-100 text-purple-500 rounded-full flex items-center justify-center shadow-inner border-4 border-purple-50">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-6" />
                                   </svg>
                               </div>
                               <div>
-                                  <h3 className="text-xl font-black text-gray-800 mb-2">Kết quả được chia sẻ</h3>
-                                  <p className="text-gray-500 text-sm max-w-xs mx-auto font-medium">
-                                      Bạn đang xem prompt từ liên kết chia sẻ. Hình ảnh gốc không được lưu trữ trong liên kết này.
+                                  <h3 className="text-2xl font-black text-gray-800 mb-2">Kết quả được chia sẻ</h3>
+                                  <p className="text-gray-500 max-w-xs mx-auto">
+                                      Đây là các prompt đã được giải mã từ trước.
                                   </p>
                               </div>
                               <button 
-                                  onClick={handleReset}
-                                  className="mt-4 bg-purple-500 text-white px-8 py-3 rounded-full font-bold hover:bg-purple-600 transition-colors shadow-lg shadow-purple-200 hover:shadow-xl active:scale-95"
+                                onClick={handleReset}
+                                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-full shadow-lg transition-all transform active:scale-95"
                               >
-                                  Tạo prompt mới của bạn
+                                Bắt đầu phân tích mới
                               </button>
                           </div>
-                     )
+                      )
                   )}
-                  
-                   {/* Main Results View Error Display */}
-                   {appState === AppState.ERROR && errorDetails && (
-                      <ErrorDisplay details={errorDetails} />
-                   )}
                 </div>
 
-                {/* Bottom: Results or Loading */}
-                <div className="w-full" ref={resultsRef}>
-                   {/* IDLE state placeholder removed as we usually jump to analyzing immediately */}
+                {appState === AppState.ANALYZING && <SkeletonLoader />}
 
-                   {appState === AppState.ANALYZING && <SkeletonLoader />}
+                {appState === AppState.ERROR && errorDetails && <ErrorDisplay details={errorDetails} />}
 
-                   {appState === AppState.SUCCESS && analysisResult && (
-                     <div className="flex flex-col gap-6">
-                       <PromptDisplay 
-                          prompts={analysisResult.prompts} 
-                          suggestions={analysisResult.suggestions}
-                          detectedTexts={analysisResult.detectedTexts}
-                          onOptimize={handleOptimize}
-                          onOptimizeAll={handleOptimizeAll}
-                          authorName={authorName}
-                       />
-                       <SuggestionsDisplay suggestions={analysisResult.suggestions} />
-                       <WhiskGuide />
+                {appState === AppState.SUCCESS && analysisResult && (
+                  <div className="animate-fade-in-up">
+                    <div ref={resultsRef} className="space-y-6">
+                      <PromptDisplay 
+                        prompts={analysisResult.prompts}
+                        suggestions={analysisResult.suggestions}
+                        detectedTexts={analysisResult.detectedTexts}
+                        authorName={authorName}
+                        onOptimize={handleOptimize}
+                        onOptimizeAll={handleOptimizeAll}
+                      />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <SuggestionsDisplay suggestions={analysisResult.suggestions} />
+                        <WhiskGuide />
+                      </div>
+                    </div>
+
+                    <div className="mt-12 text-center pb-12">
                        <button 
-                          onClick={handleReset} 
-                          className="md:hidden w-full py-4 bg-white border-2 border-gray-100 text-gray-500 rounded-full font-bold shadow-sm active:bg-gray-50 uppercase tracking-wide"
-                        >
-                          Giải mã ảnh khác
-                        </button>
-                     </div>
-                   )}
-                </div>
+                          onClick={handleReset}
+                          className="bg-white border-2 border-gray-100 hover:border-pink-200 hover:text-pink-600 text-gray-500 px-8 py-3 rounded-full font-bold shadow-sm hover:shadow-md transition-all transform active:scale-95"
+                       >
+                          ✨ Phân tích ảnh khác
+                       </button>
+                    </div>
+                  </div>
+                )}
               </MotionDiv>
             )}
           </AnimatePresence>
         </div>
       </div>
       
-      {/* Enhanced Footer */}
-      <footer className="py-8 border-t border-white/50 bg-white/40 backdrop-blur-md mt-auto">
-        <div className="max-w-5xl mx-auto px-4 text-center">
-          <p className="text-gray-400 text-xs font-bold">@2025 Trợ Lý Bé Điệu ✨</p>
-        </div>
-      </footer>
-
-      {/* Floating Action Group (Bottom Right) */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        {/* Scroll to Top Button */}
-        <AnimatePresence>
-            {showScrollTop && (
-                <motion.button
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    onClick={scrollToTop}
-                    className="p-3 bg-white/90 backdrop-blur-md border-2 border-pink-200 text-pink-500 rounded-full shadow-lg hover:bg-pink-500 hover:text-white hover:shadow-pink-300 transition-all duration-300 transform active:scale-95"
-                    aria-label="Cuộn lên đầu trang"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                    </svg>
-                </motion.button>
-            )}
-        </AnimatePresence>
-
-        {/* Floating Author Input */}
-        <div className="relative group">
-           <div className="absolute inset-0 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full blur opacity-50 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse-slow"></div>
-           <div className="relative flex items-center bg-white/95 backdrop-blur-md rounded-full border-2 border-pink-200 shadow-xl transition-all hover:border-pink-400">
-              <div className="pl-4 text-pink-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                  </svg>
-              </div>
-              <input
-                 type="text"
-                 value={authorName}
-                 onChange={(e) => setAuthorName(e.target.value)}
-                 placeholder="Tên tác giả..."
-                 className="p-3 text-gray-700 rounded-full bg-transparent outline-none font-bold placeholder-pink-300 w-32 focus:w-64 transition-all duration-300 font-sans text-sm focus:placeholder-pink-200"
-                 aria-label="Nhập tên tác giả để thêm vào prompt"
-              />
-           </div>
-        </div>
-      </div>
+      {/* Scroll to top button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            onClick={scrollToTop}
+            className="fixed bottom-6 right-6 p-4 bg-white/80 backdrop-blur-md border-2 border-pink-100 text-pink-500 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 hover:-translate-y-1 transition-all z-50 group"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

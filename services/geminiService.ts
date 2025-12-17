@@ -11,13 +11,13 @@ const getClient = () => {
 };
 
 // Helper function to pause execution
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Generic retry wrapper for API calls
 const retryOperation = async <T>(
   operation: () => Promise<T>, 
   retries: number = 3, 
-  baseDelay: number = 1000
+  baseDelay: number = 2000
 ): Promise<T> => {
   let lastError: any;
   
@@ -29,20 +29,24 @@ const retryOperation = async <T>(
       const errorMessage = (error.message || JSON.stringify(error)).toLowerCase();
       
       // Identify retryable errors
-      const isRetryable = 
+      const isRateLimit = errorMessage.includes('429') || errorMessage.includes('resource exhausted') || errorMessage.includes('quota');
+      const isNetwork = 
         errorMessage.includes('500') || 
         errorMessage.includes('503') || 
-        errorMessage.includes('xhr error') || 
-        errorMessage.includes('rpc failed') ||
         errorMessage.includes('fetch failed') ||
-        errorMessage.includes('network error');
+        errorMessage.includes('network error') ||
+        errorMessage.includes('overloaded');
 
-      if (!isRetryable || i === retries - 1) {
+      if ((!isRateLimit && !isNetwork) || i === retries - 1) {
         throw error;
       }
 
-      const delay = baseDelay * Math.pow(2, i);
-      console.warn(`Gemini API retry attempt ${i + 1}/${retries} after ${delay}ms due to:`, errorMessage);
+      // Exponential backoff: Wait longer if it's a rate limit error
+      const delay = isRateLimit 
+        ? (baseDelay * Math.pow(2, i)) + 1000 
+        : baseDelay * Math.pow(2, i);
+      
+      console.warn(`Gemini API retry attempt ${i + 1}/${retries} after ${delay}ms. Reason: ${isRateLimit ? 'Rate Limit' : 'Network/Server'}`);
       await wait(delay);
     }
   }
@@ -61,31 +65,52 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
       }
     };
 
+    // MERGED PROMPT: Combines Analysis + Optimization + Variations in ONE shot for maximum speed.
     const promptText = `
-      Bạn là một **Giám đốc Nghệ thuật (Art Director)** , **Chuyên gia Phân tích Thời trang (Fashion Analyst)** và **Nhiếp ảnh gia Thời trang Chuyên nghiệp (Professional Fashion Photographer)** hàng đầu.
+      You are a world-class Art Director and Fashion Analyst.
+      
+      GOAL: Analyze the image and generate ${count} ultra-precise, "Ready-to-Use" fashion editorial prompts.
+      
+      CRITICAL INSTRUCTION: Apply the "ART DIRECTOR LOCK SYSTEM" immediately to ALL generated prompts. Do not generate a draft first. Generate the final polished version directly.
 
-      **MỤC TIÊU:** Phân tích hình ảnh để tạo ra các prompt tái tạo (Replica) chính xác từng chi tiết nhỏ nhất.
+      ––––––––––––––––––––––
+      1. ANALYSIS PHASE (Internal Processing)
+      - Scan for: Jewelry details (material, cut), Garment specs (fabric, fit), and Lighting (key/fill).
+      - Analyze the vibe and aesthetic.
 
-      **1. PHÂN TÍCH CHI TIẾT (DETAILED BREAKDOWN):**
-      *   **Trang sức & Phụ kiện (CỰC KỲ QUAN TRỌNG):** Liệt kê chi tiết hoa tai, vòng cổ, nhẫn, đồng hồ, túi xách, kính mắt, mũ... Mô tả chất liệu (vàng, bạc, kim cương, da, nhung) và kiểu dáng.
-      *   **Trang phục (Outfit):** Mô tả chất liệu vải (texture), đường cắt may, nếp gấp, màu sắc chính xác.
-      *   **Bối cảnh (Context):** Không gian, địa điểm, các vật dụng decor xung quanh.
-      *   **Ánh sáng & Màu sắc:** Hướng sáng, nhiệt độ màu, mood của bức ảnh.
+      ––––––––––––––––––––––
+      2. GENERATION RULES (Apply to EVERY prompt)
 
-      **2. CHIẾN LƯỢC TẠO BIẾN THỂ (VARIATIONS):**
-      *   **Prompt #1 (Replica):** Tái tạo chính xác 100% ảnh gốc, bao gồm cả góc máy và biểu cảm.
-      *   **Prompt #2 -> #${count} (Variations):** 
-          - Giữ nguyên: Nhân vật, Trang phục, Phụ kiện, Bối cảnh.
-          - Thay đổi nhẹ: Góc chụp (Camera Angle), Tiêu cự (Focal Length), và Dáng pose (Body Pose) để tạo ra các góc nhìn nghệ thuật khác nhau của cùng một chủ thể.
+      Structure every prompt with these layers:
 
-      **YÊU CẦU OUTPUT JSON:**
-      - "prompts": Mảng chứa ${count} đối tượng.
-        * "text": Prompt Tiếng Anh chuẩn Midjourney v6/Flux. Dùng từ vựng chuyên ngành nhiếp ảnh và thời trang.
-        * "score": Đánh giá độ chi tiết (1-10).
-      - "detectedTexts": Mảng chứa text tìm thấy trong ảnh.
-      - "suggestions": 3-5 gợi ý Tiếng Việt để chụp ảnh đẹp hơn.
+      [LAYER 1: CHARACTER LOCK]
+      - Start with: "Create a highly realistic studio portrait of the woman/man from the uploaded photo, ensuring face is 99.99% identical to the reference."
+      - Add: "same person, identical bone structure, consistent identity, no face variation."
 
-      Chỉ trả về JSON thuần.
+      [LAYER 2: FASHION LOCK]
+      - Add: "exact same outfit, identical garments, same fabric texture, same jewelry pieces, same accessories, no outfit drift."
+
+      [LAYER 3: CAMPAIGN SPECS]
+      - Add: "shot on full-frame camera, 85mm lens, aperture f/2.8, soft directional studio lighting, ultra-high resolution, 8k, Vogue-level styling."
+
+      [LAYER 4: TEXT SIGNATURE]
+      - Add: "visible text signature in the bottom right corner, cute and aesthetic font style, small size."
+
+      ––––––––––––––––––––––
+      3. VARIATION STRATEGY
+      
+      - Prompt #1: Absolute Replica (Same pose, same angle).
+      - Prompt #2-${count}: Editorial Variations. Keep Identity and Outfit LOCKED. Only change Camera Angle (Low angle, Profile), Focal Length, or Micro-Expressions.
+
+      ––––––––––––––––––––––
+      4. OUTPUT FORMAT (JSON ONLY)
+      {
+        "prompts": [
+          { "text": "Full optimized prompt...", "score": 10 }
+        ],
+        "detectedTexts": ["Any visible text in image"],
+        "suggestions": ["3 short tips for photography"]
+      }
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
@@ -146,30 +171,18 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
   try {
     const ai = getClient();
     const promptText = `
-      Bạn là một **Nhiếp ảnh gia Thời trang Chuyên nghiệp (Professional Fashion Photographer)**.
+      You are a Professional Fashion Photographer using the "ART DIRECTOR SYSTEM".
+      TASK: Upgrade this prompt to 10/10 quality.
+      INPUT: "${originalPrompt}"
       
-      **NHIỆM VỤ:** Nâng cấp mô tả (prompt) dưới đây thành một tác phẩm nhiếp ảnh hoàn hảo (Điểm 10/10).
+      MANDATORY LAYERS:
+      1. Start with: "Create a highly realistic studio portrait of the man/woman from the uploaded photo, ensuring him/her face is 99.99% identical to the reference."
+      2. Append: "same person, identical bone structure, no face variation."
+      3. Append: "exact same outfit, identical garments, same jewelry, same accessories."
+      4. Tech Specs: "85mm lens, f/2.8, soft lighting, 8k resolution, masterpiece."
+      5. Signature: "visible text signature in the bottom right corner, cute and aesthetic font style."
 
-      **INPUT PROMPT:** "${originalPrompt}"
-
-      **YÊU CẦU TỐI ƯU HÓA (BẮT BUỘC THỰC HIỆN):**
-      1.  **Chất lượng Nhiếp ảnh Chuyên nghiệp:**
-          - Hình ảnh phải giống sản phẩm của các nhà nhiếp ảnh chuyên nghiệp (Professional Photographer's Product).
-          - Thêm các từ khóa: "Hyper-realistic, 8k resolution, Masterpiece, Sharp focus, Intricate details, Cinematic lighting, Ray tracing".
-      
-      2.  **Chi tiết hóa Thành phần & Phụ kiện:**
-          - Mô tả sâu sắc về **Trang sức (Jewelry)**, **Phụ kiện thời trang (Fashion Accessories)**.
-          - Làm rõ chất liệu (Materials) và kết cấu (Textures) của trang phục.
-      
-      3.  **Kỹ thuật Chụp ảnh (Camera & Pose):**
-          - Tự động xác định **Góc chụp (Shooting Angle)** đẹp nhất (e.g., Eye-level, Low angle, Bokeh background).
-          - Xác định **Kiểu dáng (Body Pose)** tự nhiên và tôn dáng mẫu.
-      
-      4.  **Chữ ký Tác giả (Typography Requirement):**
-          - **BẮT BUỘC:** Thêm vào cuối prompt yêu cầu hiển thị text: **"visible text signature in the bottom right corner, cute and aesthetic font style, small size"**.
-
-      **OUTPUT:**
-      Trả về JSON: { "text": "Prompt tiếng Anh hoàn chỉnh...", "score": 10 }
+      OUTPUT JSON: { "text": "Final string...", "score": 10 }
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
@@ -178,7 +191,7 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
          parts: [{ text: promptText }]
       },
       config: {
-        temperature: 0.75, // Tăng nhẹ để sáng tạo hơn trong việc chọn góc máy/pose
+        temperature: 0.75,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -204,9 +217,7 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
 export const translateText = async (text: string, targetLang: 'en' | 'vi'): Promise<string> => {
   try {
     const ai = getClient();
-    const promptText = `Translate the following text to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Keep it concise and accurate.
-    
-    Text: "${text}"`;
+    const promptText = `Translate to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Concise. Text: "${text}"`;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-2.5-flash',

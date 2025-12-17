@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PromptItem } from '../types';
-import { translateText } from '../services/geminiService';
+import { translateText, wait } from '../services/geminiService';
 
 interface PromptDisplayProps {
   prompts: PromptItem[];
@@ -13,6 +14,7 @@ interface PromptDisplayProps {
 }
 
 type FontType = 'font-mono' | 'font-sans' | 'font-serif';
+type LanguageType = 'en' | 'vi';
 
 export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestions, detectedTexts = [], authorName = '', onOptimize, onOptimizeAll }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -21,6 +23,12 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
   const [optimizingIndex, setOptimizingIndex] = useState<number | null>(null);
   const [isOptimizingAll, setIsOptimizingAll] = useState(false);
   
+  // Language State
+  const [currentLanguage, setCurrentLanguage] = useState<LanguageType>('en');
+  const [translatedCache, setTranslatedCache] = useState<Record<number, string>>({});
+  const [isTranslatingPrompts, setIsTranslatingPrompts] = useState(false);
+  const hasAutoSwitchedRef = useRef(false);
+
   const MotionDiv = motion.div as any;
   const MotionButton = motion.button as any;
   
@@ -40,25 +48,87 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     setTextOverrides(prev => ({ ...prev, [original]: newValue }));
   };
 
-  const handleBatchTranslate = async (targetLang: 'en' | 'vi') => {
+  // Helper to handle switching global language
+  const handleLanguageSwitch = async (lang: LanguageType) => {
+    if (lang === currentLanguage) return;
+
+    if (lang === 'en') {
+        setCurrentLanguage('en');
+        return;
+    }
+
+    // Switching to Vietnamese
+    if (lang === 'vi') {
+        setIsTranslatingPrompts(true);
+        // Set language immediately to trigger loading state in UI
+        setCurrentLanguage('vi'); 
+        
+        try {
+            const newCache = { ...translatedCache };
+            let updatesMade = false;
+
+            // Sequential processing to respect rate limits
+            for (let i = 0; i < prompts.length; i++) {
+                // Only translate if not already in cache or if cache is empty
+                if (!newCache[i]) {
+                    try {
+                        const translated = await translateText(prompts[i].text, 'vi');
+                        newCache[i] = translated;
+                        updatesMade = true;
+                        // Small delay to prevent 429 errors
+                        await wait(600);
+                        // Update cache progressively for better UX
+                        setTranslatedCache({...newCache});
+                    } catch (e) {
+                        console.warn(`Could not translate prompt ${i}`, e);
+                        // Fallback to original text if translation fails
+                        newCache[i] = prompts[i].text;
+                    }
+                }
+            }
+
+            if (updatesMade) {
+                setTranslatedCache(newCache);
+            }
+        } catch (error) {
+            console.error("Global translation error", error);
+            // Revert on critical failure if needed, but usually better to leave partial
+        } finally {
+            setIsTranslatingPrompts(false);
+        }
+    }
+  };
+
+  // Auto-switch to Vietnamese if browser is in Vietnamese
+  useEffect(() => {
+    if (hasAutoSwitchedRef.current) return;
+    
+    if (typeof navigator !== 'undefined') {
+        const browserLang = navigator.language || (navigator.languages && navigator.languages[0]);
+        if (browserLang && browserLang.toLowerCase().startsWith('vi')) {
+            hasAutoSwitchedRef.current = true;
+            handleLanguageSwitch('vi');
+        }
+    }
+  }, []);
+
+  const handleBatchTranslateOverrides = async (targetLang: 'en' | 'vi') => {
     if (isBatchTranslating || detectedTexts.length === 0) return;
     setIsBatchTranslating(true);
+    
     try {
-        const translationPromises = detectedTexts.map(async (original) => {
+        const newOverrides = { ...textOverrides };
+        for (const original of detectedTexts) {
              const currentText = textOverrides[original] || original;
              try {
                  const translated = await translateText(currentText, targetLang);
-                 return { original, translated };
+                 newOverrides[original] = translated;
+                 setTextOverrides({...newOverrides}); 
+                 await wait(1000); 
              } catch (e) {
-                 return { original, translated: currentText };
+                 console.warn(`Translation failed for: ${original}`);
              }
-        });
-        const results = await Promise.all(translationPromises);
-        const newOverrides = { ...textOverrides };
-        results.forEach(({ original, translated }) => {
-            newOverrides[original] = translated;
-        });
-        setTextOverrides(newOverrides);
+        }
     } catch (error) {
         console.error("Batch translation failed", error);
     } finally {
@@ -66,21 +136,31 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     }
   };
 
-  const getDisplayPrompt = (originalPromptText: string): string => {
-    let finalPrompt = originalPromptText;
+  const getDisplayPrompt = (index: number): string => {
+    const originalPromptText = prompts[index].text;
     
-    // Apply detected text overrides
-    detectedTexts.forEach(original => {
-      const replacement = textOverrides[original];
-      if (replacement && replacement !== original) {
-        finalPrompt = finalPrompt.split(original).join(replacement);
-      }
-    });
+    // Determine base text based on language
+    let baseText = originalPromptText;
+    if (currentLanguage === 'vi' && translatedCache[index]) {
+        baseText = translatedCache[index];
+    }
 
-    // Append author name if present
+    // Apply overrides ONLY if we are in English mode (since detected keys are in English)
+    // In Vietnamese mode, we assume the translation covered the context, 
+    // or string matching would be too unreliable.
+    if (currentLanguage === 'en') {
+        detectedTexts.forEach(original => {
+            const replacement = textOverrides[original];
+            if (replacement && replacement !== original) {
+                baseText = baseText.split(original).join(replacement);
+            }
+        });
+    }
+
+    // Append author name
+    let finalPrompt = baseText;
     if (authorName && authorName.trim().length > 0) {
         const trimmedName = authorName.trim();
-        // Remove trailing period if exists before appending
         if (finalPrompt.endsWith('.')) {
             finalPrompt = finalPrompt.slice(0, -1);
         }
@@ -90,9 +170,9 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     return finalPrompt;
   };
 
-  const handleCopy = async (text: string, index: number) => {
+  const handleCopy = async (index: number) => {
     try {
-      const textToCopy = getDisplayPrompt(text);
+      const textToCopy = getDisplayPrompt(index);
       await navigator.clipboard.writeText(textToCopy);
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
@@ -103,7 +183,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
 
   const handleCopyAll = async () => {
     try {
-      const allText = prompts.map(p => getDisplayPrompt(p.text)).join('\n\n');
+      const allText = prompts.map((_, index) => getDisplayPrompt(index)).join('\n\n');
       await navigator.clipboard.writeText(allText);
       setCopiedAll(true);
       setTimeout(() => setCopiedAll(false), 2000);
@@ -112,8 +192,8 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     }
   };
 
-  const handleUsePrompt = (text: string, index: number) => {
-      handleCopy(text, index);
+  const handleUsePrompt = (index: number) => {
+      handleCopy(index);
       window.open('https://labs.google/fx/tools/whisk/project', '_blank');
   };
 
@@ -122,6 +202,19 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     setOptimizingIndex(index);
     try {
       await onOptimize(index);
+      // If currently in VI, we should probably invalidate cache for this index, 
+      // but let's just switch back to EN to see the result first or let it be.
+      // For simplicity, if optimized, we clear cache for this index so it re-translates if needed
+      if (translatedCache[index]) {
+          const newCache = { ...translatedCache };
+          delete newCache[index];
+          setTranslatedCache(newCache);
+          if (currentLanguage === 'vi') {
+              // Trigger re-translation logic implicitly or user has to toggle
+              // Just switch to EN to see new prompt is safer UX
+              setCurrentLanguage('en'); 
+          }
+      }
     } finally {
       setOptimizingIndex(null);
     }
@@ -135,6 +228,9 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     setIsOptimizingAll(true);
     try {
       await onOptimizeAll();
+      // Clear cache on bulk update
+      setTranslatedCache({});
+      if (currentLanguage === 'vi') setCurrentLanguage('en');
     } finally {
       setIsOptimizingAll(false);
     }
@@ -178,7 +274,8 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
       blue: "from-sky-300 to-blue-300 shadow-sky-200 text-white border-sky-100",
       yellow: "from-amber-200 to-orange-300 shadow-orange-100 text-white border-yellow-50",
       white: "from-white to-gray-50 shadow-gray-200 text-gray-600 border-gray-100 hover:text-pink-500",
-      active: "from-green-400 to-emerald-400 shadow-green-200 text-white border-green-200"
+      active: "from-green-400 to-emerald-400 shadow-green-200 text-white border-green-200",
+      dark: "from-gray-700 to-gray-800 shadow-gray-400 text-white border-gray-600"
     };
     
     const bgClass = active ? colors.active : colors[color];
@@ -212,7 +309,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
       <MotionDiv 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="sticky top-4 z-30 bg-white/85 backdrop-blur-lg rounded-[2rem] shadow-xl shadow-purple-500/5 border-2 border-white p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300"
+        className="sticky top-4 z-30 bg-white/85 backdrop-blur-lg rounded-[2rem] shadow-xl shadow-purple-500/5 border-2 border-white p-3 sm:p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition-all duration-300"
       >
          <div className="flex items-center gap-3">
            <div className="p-3 bg-pink-100 rounded-full text-pink-500 border-2 border-white shadow-md">
@@ -227,6 +324,31 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
          </div>
 
          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+             {/* Language Switcher */}
+             <div className="flex items-center bg-gray-100 p-1 rounded-full border border-gray-200">
+                <button
+                    onClick={() => handleLanguageSwitch('en')}
+                    disabled={isTranslatingPrompts}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${currentLanguage === 'en' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    🇺🇸 English
+                </button>
+                <button
+                    onClick={() => handleLanguageSwitch('vi')}
+                    disabled={isTranslatingPrompts}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${currentLanguage === 'vi' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    {isTranslatingPrompts && currentLanguage !== 'vi' ? (
+                       <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    ) : (
+                       <span>🇻🇳</span>
+                    )}
+                    Tiếng Việt
+                </button>
+             </div>
+
+             <div className="w-px h-8 bg-gray-200 mx-1 hidden sm:block"></div>
+
              <div className="relative group">
                 <select
                     value={selectedFont}
@@ -248,7 +370,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                 <KawaiiButton 
                   color="yellow" 
                   onClick={handleOptimizeAllClick} 
-                  disabled={isOptimizingAll}
+                  disabled={isOptimizingAll || isTranslatingPrompts}
                   className={!isOptimizingAll ? "animate-pulse" : ""}
                 >
                     {isOptimizingAll ? (
@@ -265,7 +387,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                 </KawaiiButton>
              )}
 
-             <KawaiiButton color="pink" onClick={handleCopyAll} active={copiedAll}>
+             <KawaiiButton color="pink" onClick={handleCopyAll} active={copiedAll} disabled={isTranslatingPrompts}>
                 {copiedAll ? (
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -280,9 +402,9 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
          </div>
       </MotionDiv>
 
-      {/* Detected Text Editor Section */}
+      {/* Detected Text Editor Section (Only Visible in English) */}
       <AnimatePresence>
-      {detectedTexts.length > 0 && (
+      {detectedTexts.length > 0 && currentLanguage === 'en' && (
         <MotionDiv 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -298,16 +420,16 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                   </div>
                   <div>
                       <h3 className="font-bold text-orange-900 text-sm uppercase tracking-wide">Chỉnh sửa văn bản trong ảnh</h3>
-                      <p className="text-[10px] text-orange-600/70 italic">* Thay đổi sẽ tự động cập nhật vào prompt</p>
+                      <p className="text-[10px] text-orange-600/70 italic">* Thay đổi sẽ tự động cập nhật vào prompt (Tiếng Anh)</p>
                   </div>
                </div>
                
                <div className="flex gap-2">
-                   {/* Translation buttons */}
+                   {/* Translation buttons for DETECTED TEXT ONLY */}
                    <MotionButton
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => handleBatchTranslate('en')}
+                      onClick={() => handleBatchTranslateOverrides('en')}
                       disabled={isBatchTranslating}
                       className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 border-2 border-indigo-50 transition-all disabled:opacity-50"
                    >
@@ -316,12 +438,12 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                       ) : (
                           <span>🇺🇸</span>
                       )}
-                      <span>Dịch sang Anh</span>
+                      <span>Dịch từ khóa</span>
                    </MotionButton>
                    <MotionButton
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => handleBatchTranslate('vi')}
+                      onClick={() => handleBatchTranslateOverrides('vi')}
                       disabled={isBatchTranslating}
                       className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full bg-red-100 text-red-600 hover:bg-red-200 border-2 border-red-50 transition-all disabled:opacity-50"
                    >
@@ -330,7 +452,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                       ) : (
                           <span>🇻🇳</span>
                       )}
-                      <span>Dịch sang Việt</span>
+                      <span>Dịch từ khóa</span>
                    </MotionButton>
                </div>
            </div>
@@ -368,9 +490,11 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
       >
         {prompts.map((promptItem, index) => {
           const isMain = index === 0;
-          const displayPromptText = getDisplayPrompt(promptItem.text);
+          const displayPromptText = getDisplayPrompt(index);
           const isOptimizingThis = optimizingIndex === index || (isOptimizingAll && (promptItem.score || 0) < 10);
-          
+          // Check if we are waiting for THIS specific prompt translation
+          const isWaitingTranslation = currentLanguage === 'vi' && isTranslatingPrompts && !translatedCache[index];
+
           return (
             <MotionDiv 
               key={index} 
@@ -409,12 +533,12 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                  </div>
 
                  <div className="flex items-center gap-2">
-                     {(promptItem.score || 0) < 9 && (
+                     {(promptItem.score || 0) < 9 && currentLanguage === 'en' && (
                          <MotionButton
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleOptimizeClick(index)}
-                            disabled={optimizingIndex === index || isOptimizingAll}
+                            disabled={optimizingIndex === index || isOptimizingAll || isTranslatingPrompts}
                             className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-sm border-2
                                 ${isOptimizingThis
                                     ? 'bg-yellow-100 text-yellow-400 border-yellow-200'
@@ -438,7 +562,8 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                      <MotionButton
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => handleCopy(displayPromptText, index)}
+                        onClick={() => handleCopy(index)}
+                        disabled={isWaitingTranslation}
                         className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-sm border-2
                             ${copiedIndex === index 
                                 ? 'bg-green-100 text-green-600 border-green-200' 
@@ -460,10 +585,22 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
               </div>
 
               {/* Card Body */}
-              <div className="flex-grow p-6 bg-white cursor-text">
-                <p className={`${selectedFont} text-sm font-medium leading-7 text-gray-600 whitespace-pre-wrap selection:bg-pink-100 selection:text-pink-900`}>
-                    {displayPromptText}
-                </p>
+              <div className="flex-grow p-6 bg-white cursor-text min-h-[150px] relative">
+                {isWaitingTranslation ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-10">
+                        <div className="flex flex-col items-center">
+                            <svg className="animate-spin h-8 w-8 text-pink-400 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="text-xs font-bold text-pink-400 animate-pulse">Đang dịch...</span>
+                        </div>
+                    </div>
+                ) : (
+                    <p className={`${selectedFont} text-sm font-medium leading-7 text-gray-600 whitespace-pre-wrap selection:bg-pink-100 selection:text-pink-900`}>
+                        {displayPromptText}
+                    </p>
+                )}
               </div>
 
               {/* Card Footer */}
@@ -476,7 +613,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                  
                  <MotionButton
                     whileHover={{ x: 3 }}
-                    onClick={() => handleUsePrompt(displayPromptText, index)}
+                    onClick={() => handleUsePrompt(index)}
                     className="group/btn flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border-2 border-gray-100 text-xs font-bold text-gray-500 hover:text-indigo-500 hover:border-indigo-200 hover:shadow-sm transition-all"
                  >
                     <span>Dùng trên Whisk</span>
