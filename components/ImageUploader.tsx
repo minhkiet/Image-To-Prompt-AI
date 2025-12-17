@@ -14,6 +14,7 @@ const WORKER_CODE = `
     
     try {
       // Create bitmap from file (efficient and off-main-thread compatible)
+      // Note: createImageBitmap can hang on some iOS versions, handled by timeout in main thread
       const bitmap = await createImageBitmap(file);
       let width = bitmap.width;
       let height = bitmap.height;
@@ -85,7 +86,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
     setIsDragging(false);
   };
 
-  // Fallback compression for browsers without OffscreenCanvas support in Workers
+  // Fallback compression for browsers without OffscreenCanvas support in Workers or if Worker fails/times out
   const compressImageFallback = (file: File): Promise<{ base64: string, preview: string, mimeType: string }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -119,14 +120,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
           }
           ctx.drawImage(img, 0, 0, width, height);
 
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          const base64 = dataUrl.split(',')[1];
-          
-          resolve({
-            base64,
-            preview: dataUrl,
-            mimeType: 'image/jpeg'
-          });
+          // Get Data URL (synchronous on main thread)
+          try {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const base64 = dataUrl.split(',')[1];
+            resolve({
+              base64,
+              preview: dataUrl,
+              mimeType: 'image/jpeg'
+            });
+          } catch (e) {
+            reject(new Error("Lỗi khi nén ảnh (Fallback)."));
+          }
         };
         img.src = event.target?.result as string;
       };
@@ -144,13 +149,24 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
         return;
       }
 
+      let worker: Worker | null = null;
+      // Add timeout to handle iOS Safari hangs (createImageBitmap can sometimes hang indefinitely)
+      const timeoutId = setTimeout(() => {
+        if (worker) {
+          worker.terminate();
+          console.warn('Worker timed out (iOS fix), falling back to main thread.');
+          compressImageFallback(file).then(resolve).catch(reject);
+        }
+      }, 5000); // 5 seconds timeout
+
       try {
         const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
-        const worker = new Worker(URL.createObjectURL(blob));
+        worker = new Worker(URL.createObjectURL(blob));
 
         worker.onmessage = (e) => {
+          clearTimeout(timeoutId);
           const { success, base64, preview, mimeType, error } = e.data;
-          worker.terminate(); // Clean up
+          worker?.terminate();
 
           if (success) {
             resolve({ base64, preview, mimeType });
@@ -162,13 +178,15 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
         };
 
         worker.onerror = (err) => {
-          worker.terminate();
+          clearTimeout(timeoutId);
+          worker?.terminate();
           console.error('Worker error:', err);
           compressImageFallback(file).then(resolve).catch(reject);
         };
 
         worker.postMessage({ file, maxDimension: 1536, quality: 0.85 });
       } catch (e) {
+        clearTimeout(timeoutId);
         console.error('Failed to create worker:', e);
         compressImageFallback(file).then(resolve).catch(reject);
       }
@@ -188,7 +206,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
 
     setIsProcessing(true);
     try {
-      // Use the worker-based compression
+      // Use the worker-based compression with safe fallback
       const { base64, preview, mimeType } = await compressImageWithWorker(file);
       onImageSelected({
         file,
@@ -263,7 +281,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
     return () => {
       document.removeEventListener('paste', handlePaste);
     };
-  });
+  }, [disabled, isProcessing]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
