@@ -17,7 +17,6 @@ type FontType = 'font-mono' | 'font-sans' | 'font-serif';
 export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestions, detectedTexts = [], authorName = '', onOptimize, onOptimizeAll }) => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
-  const [shared, setShared] = useState(false);
   const [selectedFont, setSelectedFont] = useState<FontType>('font-mono');
   const [optimizingIndex, setOptimizingIndex] = useState<number | null>(null);
   const [isOptimizingAll, setIsOptimizingAll] = useState(false);
@@ -113,27 +112,6 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     }
   };
 
-  const handleShare = async () => {
-    try {
-      const shareData = {
-        p: prompts,
-        s: suggestions,
-        t: detectedTexts
-      };
-      const jsonString = JSON.stringify(shareData);
-      const encoded = btoa(unescape(encodeURIComponent(jsonString)));
-      const url = new URL(window.location.href);
-      url.searchParams.set('share', encoded);
-      const shareUrl = url.toString();
-      await navigator.clipboard.writeText(shareUrl);
-      window.history.pushState({}, '', shareUrl);
-      setShared(true);
-      setTimeout(() => setShared(false), 2000);
-    } catch (err) {
-      console.error('Failed to generate share link: ', err);
-    }
-  };
-
   const handleUsePrompt = (text: string, index: number) => {
       handleCopy(text, index);
       window.open('https://labs.google/fx/tools/whisk/project', '_blank');
@@ -193,7 +171,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
   };
 
   // Reusable Kawaii Button Style
-  const KawaiiButton = ({ color, onClick, disabled, children, active }: any) => {
+  const KawaiiButton = ({ color, onClick, disabled, children, active, className = '' }: any) => {
     const Btn = motion.button as any;
     const colors: any = {
       pink: "from-pink-300 to-rose-300 shadow-pink-200 text-white border-pink-100",
@@ -218,6 +196,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
           border-t-2 transition-all duration-300
           text-sm font-extrabold tracking-wide uppercase
           ${disabled ? 'opacity-70 cursor-wait grayscale' : ''}
+          ${className}
         `}
       >
         {children}
@@ -266,7 +245,12 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
              </div>
              
              {canOptimizeAny && (
-                <KawaiiButton color="yellow" onClick={handleOptimizeAllClick} disabled={isOptimizingAll}>
+                <KawaiiButton 
+                  color="yellow" 
+                  onClick={handleOptimizeAllClick} 
+                  disabled={isOptimizingAll}
+                  className={!isOptimizingAll ? "animate-pulse" : ""}
+                >
                     {isOptimizingAll ? (
                         <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -277,16 +261,9 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                     )}
-                    <span className="hidden sm:inline">{isOptimizingAll ? "Đang xử lý" : "Tối ưu hết"}</span>
+                    <span>{isOptimizingAll ? "Đang xử lý..." : "Tối ưu hết"}</span>
                 </KawaiiButton>
              )}
-
-             <KawaiiButton color="blue" onClick={handleShare} active={shared}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-                <span className="hidden sm:inline">Chia sẻ</span>
-             </KawaiiButton>
 
              <KawaiiButton color="pink" onClick={handleCopyAll} active={copiedAll}>
                 {copiedAll ? (
@@ -392,6 +369,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
         {prompts.map((promptItem, index) => {
           const isMain = index === 0;
           const displayPromptText = getDisplayPrompt(promptItem.text);
+          const isOptimizingThis = optimizingIndex === index || (isOptimizingAll && (promptItem.score || 0) < 10);
           
           return (
             <MotionDiv 
@@ -438,13 +416,13 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                             onClick={() => handleOptimizeClick(index)}
                             disabled={optimizingIndex === index || isOptimizingAll}
                             className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-sm border-2
-                                ${optimizingIndex === index 
+                                ${isOptimizingThis
                                     ? 'bg-yellow-100 text-yellow-400 border-yellow-200'
                                     : 'bg-white text-yellow-500 border-yellow-200 hover:bg-yellow-400 hover:text-white hover:border-yellow-400'
                                 }`}
                             title="Tối ưu hóa"
                          >
-                            {optimizingIndex === index ? (
+                            {isOptimizingThis ? (
                                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

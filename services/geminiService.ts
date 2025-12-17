@@ -29,10 +29,6 @@ const retryOperation = async <T>(
       const errorMessage = (error.message || JSON.stringify(error)).toLowerCase();
       
       // Identify retryable errors
-      // 500: Internal Server Error
-      // 503: Service Unavailable
-      // xhr error/rpc failed: Network/transport issues typical in browser
-      // fetch failed: Network issues
       const isRetryable = 
         errorMessage.includes('500') || 
         errorMessage.includes('503') || 
@@ -66,51 +62,39 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     };
 
     const promptText = `
-      Bạn là một **Chuyên gia Phân tích Hình ảnh (Visual Analyst)** kiêm **Đạo diễn Hình ảnh (Director of Photography)** xuất sắc.
+      Bạn là một **Giám đốc Nghệ thuật (Art Director)** , **Chuyên gia Phân tích Thời trang (Fashion Analyst)** và **Nhiếp ảnh gia Thời trang Chuyên nghiệp (Professional Fashion Photographer)** hàng đầu.
 
-      **MỤC TIÊU:** Tạo ra các prompt để tái tạo hình ảnh (Replica) và các biến thể (Variations) với tiêu chí: **"ĐỒNG NHẤT TUYỆT ĐỐI VỚI ẢNH GỐC"**.
+      **MỤC TIÊU:** Phân tích hình ảnh để tạo ra các prompt tái tạo (Replica) chính xác từng chi tiết nhỏ nhất.
 
-      **1. PHÂN TÍCH CỐT LÕI (BẮT BUỘC GIỮ NGUYÊN 100%):**
-      *   **Bối cảnh & Hậu cảnh (Context & Background - CỰC KỲ QUAN TRỌNG):** 
-          - Mô tả cực chi tiết không gian xung quanh (quán cafe, đường phố, phòng ngủ...).
-          - Ghi rõ các chi tiết nền: màu tường, ánh đèn bokeh, đồ vật decor cụ thể.
-          - **Yêu cầu:** Bối cảnh trong tất cả các prompt phải khớp hoàn toàn với ảnh gốc, tạo cảm giác cùng một địa điểm.
-      *   **Nhân dạng & Trang phục:** Giữ nguyên khuôn mặt, kiểu tóc, trang điểm, quần áo, phụ kiện, chất liệu vải.
-      *   **Ánh sáng (Lighting):** Giữ nguyên hướng sáng, nhiệt độ màu (ấm/lạnh), độ tương phản (contrast).
+      **1. PHÂN TÍCH CHI TIẾT (DETAILED BREAKDOWN):**
+      *   **Trang sức & Phụ kiện (CỰC KỲ QUAN TRỌNG):** Liệt kê chi tiết hoa tai, vòng cổ, nhẫn, đồng hồ, túi xách, kính mắt, mũ... Mô tả chất liệu (vàng, bạc, kim cương, da, nhung) và kiểu dáng.
+      *   **Trang phục (Outfit):** Mô tả chất liệu vải (texture), đường cắt may, nếp gấp, màu sắc chính xác.
+      *   **Bối cảnh (Context):** Không gian, địa điểm, các vật dụng decor xung quanh.
+      *   **Ánh sáng & Màu sắc:** Hướng sáng, nhiệt độ màu, mood của bức ảnh.
 
-      **2. PHÂN TÍCH BIỂU CẢM & CẢM XÚC (EXPRESSION & MOOD):**
-      *   Hãy nhìn sâu vào ánh mắt và cơ mặt nhân vật. Họ đang vui, buồn, quyến rũ, hay suy tư?
-      *   **Yêu cầu:** Mọi prompt biến thể phải mô tả chính xác trạng thái cảm xúc này. 
-          - *Ví dụ:* Nếu ảnh gốc là "mắt buồn, nhìn xa xăm", thì biến thể không được "cười tươi rạng rỡ".
-          - Sử dụng các từ khóa miêu tả vi biểu cảm (micro-expressions): *smizing, pouting, melancholic gaze, soft smile, intense eye contact*.
-
-      **3. CHIẾN LƯỢC BIẾN THỂ (VARIATIONS STRATEGY):**
-      Thay vì thay đổi ngẫu nhiên, hãy tạo ra các "Góc máy khác của cùng một khoảnh khắc" (Alternative shots of the same moment).
-      *   **Prompt #1 (The Replica):** Tái tạo chính xác 100% ảnh gốc (Góc chụp, Pose, Crop y hệt).
-      *   **Prompt #2 -> #${count} (The Consistent Variations):**
-          - Giữ nguyên Bối cảnh + Nhân vật + Mood.
-          - Thay đổi nhẹ **Góc máy (Camera Angle):** High angle (ngây thơ), Low angle (quyền lực), Dutch angle (nghệ thuật).
-          - Thay đổi **Tiêu cự & Cự ly:** Chuyển từ Close-up sang Medium Shot hoặc ngược lại.
-          - Thay đổi **Tạo dáng (Pose):** Pose mới phải tự nhiên và **phù hợp với bối cảnh**. (Ví dụ: Đang ngồi ghế thì pose biến thể có thể là vắt chân, chống cằm, nghiêng đầu - nhưng vẫn phải ngồi trên ghế đó).
+      **2. CHIẾN LƯỢC TẠO BIẾN THỂ (VARIATIONS):**
+      *   **Prompt #1 (Replica):** Tái tạo chính xác 100% ảnh gốc, bao gồm cả góc máy và biểu cảm.
+      *   **Prompt #2 -> #${count} (Variations):** 
+          - Giữ nguyên: Nhân vật, Trang phục, Phụ kiện, Bối cảnh.
+          - Thay đổi nhẹ: Góc chụp (Camera Angle), Tiêu cự (Focal Length), và Dáng pose (Body Pose) để tạo ra các góc nhìn nghệ thuật khác nhau của cùng một chủ thể.
 
       **YÊU CẦU OUTPUT JSON:**
       - "prompts": Mảng chứa ${count} đối tượng.
-        * "text": Prompt Tiếng Anh chuẩn Midjourney/Flux. Dùng từ vựng nhiếp ảnh chuyên nghiệp (Photorealistic).
+        * "text": Prompt Tiếng Anh chuẩn Midjourney v6/Flux. Dùng từ vựng chuyên ngành nhiếp ảnh và thời trang.
         * "score": Đánh giá độ chi tiết (1-10).
-      - "detectedTexts": Mảng chứa text tìm thấy trong ảnh (nếu có).
-      - "suggestions": 3-5 gợi ý Tiếng Việt để chụp ảnh đẹp hơn (ví dụ: cách đánh đèn, chỉnh pose).
+      - "detectedTexts": Mảng chứa text tìm thấy trong ảnh.
+      - "suggestions": 3-5 gợi ý Tiếng Việt để chụp ảnh đẹp hơn.
 
-      Chỉ trả về JSON thuần, không Markdown.
+      Chỉ trả về JSON thuần.
     `;
 
-    // Wrap the generateContent call with retry logic
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: {
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.65, // Giảm nhẹ temperature để tăng tính nhất quán
+        temperature: 0.65,
         topK: 40,
         topP: 0.90,
         responseMimeType: 'application/json',
@@ -123,15 +107,14 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
                 type: Type.OBJECT,
                 properties: {
                   text: { type: Type.STRING },
-                  score: { type: Type.NUMBER, description: "Rating 1-10" }
+                  score: { type: Type.NUMBER }
                 },
                 required: ["text", "score"]
               }
             },
             detectedTexts: {
               type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "List of exact text strings visible in the image"
+              items: { type: Type.STRING }
             },
             suggestions: {
               type: Type.ARRAY,
@@ -144,9 +127,7 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     }));
 
     const text = response.text;
-    if (!text) {
-      throw new Error("AI không trả về nội dung nào.");
-    }
+    if (!text) throw new Error("AI không trả về nội dung.");
 
     try {
       return JSON.parse(text) as AnalysisResult;
@@ -157,7 +138,6 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
 
   } catch (error: any) {
     console.error("Lỗi khi gọi Gemini API:", error);
-    // Return original error if possible to let App.tsx analyze it, otherwise wrap
     throw error;
   }
 };
@@ -166,27 +146,39 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
   try {
     const ai = getClient();
     const promptText = `
-      Bạn là một chuyên gia Prompt Engineering (Midjourney v6/Flux).
-      Nhiệm vụ: Nâng cấp prompt sau lên điểm 10/10 (Photorealistic/High Art).
+      Bạn là một **Nhiếp ảnh gia Thời trang Chuyên nghiệp (Professional Fashion Photographer)**.
       
-      Prompt gốc: "${originalPrompt}"
+      **NHIỆM VỤ:** Nâng cấp mô tả (prompt) dưới đây thành một tác phẩm nhiếp ảnh hoàn hảo (Điểm 10/10).
+
+      **INPUT PROMPT:** "${originalPrompt}"
+
+      **YÊU CẦU TỐI ƯU HÓA (BẮT BUỘC THỰC HIỆN):**
+      1.  **Chất lượng Nhiếp ảnh Chuyên nghiệp:**
+          - Hình ảnh phải giống sản phẩm của các nhà nhiếp ảnh chuyên nghiệp (Professional Photographer's Product).
+          - Thêm các từ khóa: "Hyper-realistic, 8k resolution, Masterpiece, Sharp focus, Intricate details, Cinematic lighting, Ray tracing".
       
-      Yêu cầu:
-      1. Giữ nguyên ý nghĩa, nội dung text (nếu có), màu sắc và bố cục gốc.
-      2. Bổ sung từ khóa về chất lượng: "8k resolution, hyper-detailed, photorealistic, masterpiece, cinematic lighting, ray tracing".
-      3. Làm rõ chất liệu (texture) và quang học (camera lens, depth of field).
+      2.  **Chi tiết hóa Thành phần & Phụ kiện:**
+          - Mô tả sâu sắc về **Trang sức (Jewelry)**, **Phụ kiện thời trang (Fashion Accessories)**.
+          - Làm rõ chất liệu (Materials) và kết cấu (Textures) của trang phục.
       
-      Output JSON: { "text": "...", "score": 10 }
+      3.  **Kỹ thuật Chụp ảnh (Camera & Pose):**
+          - Tự động xác định **Góc chụp (Shooting Angle)** đẹp nhất (e.g., Eye-level, Low angle, Bokeh background).
+          - Xác định **Kiểu dáng (Body Pose)** tự nhiên và tôn dáng mẫu.
+      
+      4.  **Chữ ký Tác giả (Typography Requirement):**
+          - **BẮT BUỘC:** Thêm vào cuối prompt yêu cầu hiển thị text: **"visible text signature in the bottom right corner, cute and aesthetic font style, small size"**.
+
+      **OUTPUT:**
+      Trả về JSON: { "text": "Prompt tiếng Anh hoàn chỉnh...", "score": 10 }
     `;
 
-    // Wrap the generateContent call with retry logic
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: {
          parts: [{ text: promptText }]
       },
       config: {
-        temperature: 0.7,
+        temperature: 0.75, // Tăng nhẹ để sáng tạo hơn trong việc chọn góc máy/pose
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -205,14 +197,14 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
 
   } catch (error: any) {
      console.error("Optimize error:", error);
-     throw new Error("Không thể tối ưu hóa prompt lúc này. Vui lòng thử lại.");
+     throw new Error("Không thể tối ưu hóa prompt lúc này.");
   }
 };
 
 export const translateText = async (text: string, targetLang: 'en' | 'vi'): Promise<string> => {
   try {
     const ai = getClient();
-    const promptText = `Translate the following text to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Keep it concise and accurate. Do not add any explanations.
+    const promptText = `Translate the following text to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Keep it concise and accurate.
     
     Text: "${text}"`;
 
