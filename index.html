@@ -4,23 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Công cụ AI giải mã hình ảnh thành prompt. Tải lên ảnh nghệ thuật và nhận lại câu lệnh (prompt) gốc chính xác từ Gemini AI." />
-    <title>Trình Giải Mã Prompt AI</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
+    <title>Trợ Lý Bé Điệu Siêu Cấp Cute</title>
+    <link rel="icon" href="https://i.pinimg.com/736x/5c/7a/2d/5c7a2decdf0731e810f0c547f7d755d3.jpg">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Changed font to Nunito for a rounder, cuter look -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['Nunito', 'sans-serif'], // Kawaii font
+            },
+            colors: {
+              kawaii: {
+                pink: '#FFB7D5',
+                pinkDark: '#FF9ECA',
+                blue: '#A5EAFF',
+                blueDark: '#8BE0FF',
+                yellow: '#FFF5BA',
+                yellowDark: '#FFEFA0',
+                text: '#6B4C5E'
+              }
             },
             animation: {
-              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
-              'fade-in': 'fadeIn 0.4s ease-out forwards',
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
               'bounce-subtle': 'bounceSubtle 3s ease-in-out infinite',
-              'pop': 'pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+              'float': 'float 6s ease-in-out infinite',
+              'shimmer': 'shimmer 2.5s linear infinite',
+              'gradient-x': 'gradient-x 15s ease infinite',
+              'blob': 'blob 7s infinite',
+              'squish': 'squish 0.3s cubic-bezier(0.25, 1.6, 0.5, 0.8)',
             },
             keyframes: {
               fadeInUp: {
@@ -35,10 +51,42 @@
                 '0%, 100%': { transform: 'translateY(-3%)' },
                 '50%': { transform: 'translateY(3%)' },
               },
-              pop: {
-                '0%': { transform: 'scale(0.95)' },
-                '50%': { transform: 'scale(1.05)' },
-                '100%': { transform: 'scale(1)' },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              shimmer: {
+                '0%': { backgroundPosition: '-1000px 0' },
+                '100%': { backgroundPosition: '1000px 0' }
+              },
+              'gradient-x': {
+                '0%, 100%': {
+                    'background-size': '200% 200%',
+                    'background-position': 'left center'
+                },
+                '50%': {
+                    'background-size': '200% 200%',
+                    'background-position': 'right center'
+                },
+              },
+              blob: {
+                "0%": {
+                  transform: "translate(0px, 0px) scale(1)",
+                },
+                "33%": {
+                  transform: "translate(30px, -50px) scale(1.1)",
+                },
+                "66%": {
+                  transform: "translate(-20px, 20px) scale(0.9)",
+                },
+                "100%": {
+                  transform: "translate(0px, 0px) scale(1)",
+                },
+              },
+              squish: {
+                 '0%': { transform: 'scale(1)' },
+                 '50%': { transform: 'scale(0.95, 1.05)' },
+                 '100%': { transform: 'scale(1)' }
               }
             }
           },
@@ -47,13 +95,43 @@
     </script>
     <style>
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Nunito', sans-serif;
         background-color: #f8fafc;
-        background-image: 
-          radial-gradient(at 0% 0%, rgba(147, 51, 234, 0.08) 0px, transparent 50%),
-          radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%);
+        background-image: url('https://i.pinimg.com/736x/d9/61/47/d96147f84a49f07befc81058963857a5.jpg');
+        background-size: cover;
+        background-position: center;
         background-attachment: fixed;
+        background-repeat: no-repeat;
         min-height: 100vh;
+      }
+      /* Subtle white overlay to ensure text/cards contrast remains high */
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.4); 
+        backdrop-filter: blur(5px);
+        z-index: -1;
+        pointer-events: none;
+      }
+      
+      /* Smooth scrollbar */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.5); 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #FFB7D5; 
+        border-radius: 10px;
+        border: 2px solid #fff;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #FF9ECA; 
       }
     </style>
   <script type="importmap">

@@ -1,5 +1,5 @@
 {
-  "name": "Image To Prompt AI",
+  "name": "Trợ Lý Bé Điệu Siêu Cấp Cute",
   "description": "Tải lên hình ảnh được tạo bởi AI để trích xuất prompt gốc.",
   "requestFramePermissions": [
     "clipboard-read"

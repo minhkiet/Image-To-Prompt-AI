@@ -1,5 +1,6 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult } from "../types";
+
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import { AnalysisResult, PromptItem } from "../types";
 
 const getClient = () => {
   const apiKey = process.env.API_KEY;
@@ -7,6 +8,50 @@ const getClient = () => {
     throw new Error("API Key chưa được cấu hình trong hệ thống. Vui lòng kiểm tra biến môi trường.");
   }
   return new GoogleGenAI({ apiKey });
+};
+
+// Helper function to pause execution
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Generic retry wrapper for API calls
+const retryOperation = async <T>(
+  operation: () => Promise<T>, 
+  retries: number = 3, 
+  baseDelay: number = 1000
+): Promise<T> => {
+  let lastError: any;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      const errorMessage = (error.message || JSON.stringify(error)).toLowerCase();
+      
+      // Identify retryable errors
+      // 500: Internal Server Error
+      // 503: Service Unavailable
+      // xhr error/rpc failed: Network/transport issues typical in browser
+      // fetch failed: Network issues
+      const isRetryable = 
+        errorMessage.includes('500') || 
+        errorMessage.includes('503') || 
+        errorMessage.includes('xhr error') || 
+        errorMessage.includes('rpc failed') ||
+        errorMessage.includes('fetch failed') ||
+        errorMessage.includes('network error');
+
+      if (!isRetryable || i === retries - 1) {
+        throw error;
+      }
+
+      const delay = baseDelay * Math.pow(2, i);
+      console.warn(`Gemini API retry attempt ${i + 1}/${retries} after ${delay}ms due to:`, errorMessage);
+      await wait(delay);
+    }
+  }
+  
+  throw lastError;
 };
 
 export const decodeImagePrompt = async (base64Data: string, mimeType: string, count: number = 1): Promise<AnalysisResult> => {
@@ -21,54 +66,62 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     };
 
     const promptText = `
-      Đóng vai một **Giám đốc Sáng tạo (Creative Director)** và **Nhiếp ảnh gia Thời trang Cao cấp (High-End Fashion Photographer)** của tạp chí Vogue/Harper's Bazaar. Nhiệm vụ của bạn là giải mã hình ảnh để viết prompt tái tạo với độ chính xác tuyệt đối, mang tính thẩm mỹ nghệ thuật cao.
+      Bạn là một **Nhiếp ảnh gia Chuyên nghiệp (Professional Photographer)** kiêm **Giám đốc Nghệ thuật (Art Director)** đẳng cấp thế giới.
+      
+      **NHIỆM VỤ:** Giải mã hình ảnh đầu vào để tạo ra một "Bộ ảnh concept" (Photoshoot Set). Các prompt phải đảm bảo tính nhất quán về nhân vật nhưng cực kỳ đa dạng về góc máy và tạo dáng.
 
-      Hãy thực hiện quy trình phân tích "Lớp Phẫu Thuật Hình Ảnh" (Layered Visual Surgery) sau đây:
+      **QUY TẮC BẤT DI BẤT DỊCH (CONSTANTS - GIỮ NGUYÊN 100%):**
+      1. **Nhân dạng (Identity):** Giữ nguyên khuôn mặt, đặc điểm cơ thể, kiểu tóc, trang điểm.
+      2. **Trang phục (Attire):** Giữ nguyên quần áo, phụ kiện, chất liệu vải (fabric texture), trang sức.
+      3. **Bối cảnh & Ánh sáng:** Giữ nguyên địa điểm (Location), thời gian trong ngày, setup ánh sáng (Cinematic, Softbox, Rim light...), tông màu (Color Grading).
+      4. **Văn bản (Text):** Nếu ảnh gốc có chữ, bắt buộc phải giữ nguyên.
 
-      **LỚP 1: THÔNG SỐ KỸ THUẬT & CHẤT MÀU (FILM LOOK & COLOR GRADING)**
-      - **Camera & Lens:** Xác định tiêu cự (85mm portrait, 35mm street, 100mm macro). Độ sâu trường ảnh (Depth of field/Bokeh).
-      - **Chất màu (Color Palette):** Phân tích tông màu chủ đạo. Có phải là màu phim (Kodak Portra 400, CineStill 800T)? Hay là tông màu kỹ thuật số sắc nét? (Desaturated, Vivid, Pastel, Dark Moody, Teal and Orange).
-      - **Ánh sáng:** Studio Lighting (Softbox, Rembrandt), Natural Light (Golden Hour, Overcast), hay Neon Noir?
+      **BIẾN SỐ NHIẾP ẢNH (VARIABLES - CẦN SỰ SÁNG TẠO ĐA CHIỀU):**
+      Để tạo ra sự khác biệt chuyên nghiệp, các biến thể phải thay đổi mạnh mẽ các yếu tố sau:
+      - **Góc máy (Camera Angles):** 
+        + Low angle (Hất từ dưới lên - tạo vẻ quyền lực/chân dài).
+        + High angle (Từ trên xuống - tạo vẻ ngây thơ/nhỏ bé).
+        + Dutch angle (Góc nghiêng kịch tính).
+        + Over-the-shoulder (Góc nhìn qua vai).
+        + Eye-level (Góc nhìn ngang tầm mắt).
+      - **Cự ly & Tiêu cự (Shot Size & Focal Length):**
+        + Extreme Close-up (Macro chi tiết mắt/môi).
+        + Medium Shot (Ngang hông/ngực).
+        + Cowboy Shot (Ngang đùi).
+        + Full Body / Wide Shot (Toàn thân lấy bối cảnh).
+        + Sử dụng từ khóa lens: "35mm wide lens", "85mm portrait lens", "200mm telephoto lens".
+      - **Tạo dáng (Poses):** 
+        + Dynamic poses (Đang bước đi, tóc bay, váy tung).
+        + Candid moments (Khoảnh khắc tự nhiên, không nhìn vào camera).
+        + Interactive poses (Dựa vào tường, cầm đồ vật, vuốt tóc).
+      - **Chiều sâu (Depth):** Depth of field, Bokeh background, Foreground elements (tiền cảnh mờ).
 
-      **LỚP 2: PHẪU THUẬT THỜI TRANG & CHI TIẾT (LUXURY DETAILS)**
-      - **Trang phục (Outfit):** Không chỉ gọi tên. Hãy mô tả **CHẤT LIỆU (Texture)**: Lụa satin bóng, nhung mịn (velvet), len dệt kim (knitted), da thuộc (leather), vải xuyên thấu (sheer). Mô tả cách vải rủ xuống cơ thể (draping).
-      - **Phụ kiện & Trang sức (Jewelry & Accessories - RẤT QUAN TRỌNG):** "Zoom" vào chi tiết. Khuyên tai to bản (Statement earrings), vòng cổ nhiều lớp (Layered necklaces), nhẫn đính đá, gọng kính kim loại, túi xách có vân da cá sấu...
-      - **Trang điểm (Makeup):** Dewy skin, Matte finish, Red bold lips, Graphic eyeliner.
-
-      **LỚP 3: CHỦ THỂ & THẦN THÁI (SUBJECT & VIBE)**
-      - **Đặc điểm:** Tóc (Kiểu dáng, màu sắc, texture), Màu da tự nhiên (Highly detailed skin texture).
-      - **Posing & Eye Contact:** Ánh mắt là điểm nhấn. Dáng đứng/ngồi phải chuẩn thời trang (High fashion pose, Broken down poses, Fluid motion).
-
-      ---
       **YÊU CẦU OUTPUT JSON:**
       
-      - "prompts": Mảng chứa ${count} chuỗi văn bản Tiếng Anh.
-        *   **Quy tắc chung cho mọi prompt:** Phải bắt đầu bằng các từ khóa định hình phong cách (VD: "Editorial photography, Shot on 35mm film..."). Kết thúc bằng các từ khóa chất lượng cao ("8k, masterpiece, ultra-detailed textures").
-        
-        *   **Prompt Index 0 (Bản sao hoàn hảo - The Replica):**
-            - Mô tả chính xác 100% ảnh gốc từ góc máy, ánh sáng đến nếp gấp quần áo.
-            - Cấu trúc: "[Medium/Film Stock]. [Subject Description + Makeup]. [DETAILED OUTFIT & JEWELRY]. [Specific Pose & Eye Contact]. [Background/Environment]. [Lighting & Color Grading]."
-        
-        *   **Prompt Index 1 trở đi (Biến thể Lookbook - Consistent Style):**
-            - **QUAN TRỌNG:** Giữ nguyên 100% "Chất màu" (Lớp 1) và "Thời trang/Phụ kiện" (Lớp 2) để tạo sự đồng nhất (Consistency) cho bộ ảnh.
-            - **THAY ĐỔI:** Chỉ thay đổi dáng Pose và Góc máy (Camera Angle).
-            - Ví dụ biến thể:
-                + "A close-up portrait shot focusing on the jewelry and eyes..." (Cận cảnh phụ kiện/mắt).
-                + "Full body shot, subject walking towards camera, dynamic movement..." (Toàn thân, chuyển động).
-                + "Side profile shot, looking at a light source..." (Góc nghiêng).
+      - "prompts": Mảng chứa ${count} đối tượng.
+        * "text": Prompt Tiếng Anh. 
+           - **Prompt #1 (The Replica):** Tái tạo chính xác 100% ảnh gốc (Góc chụp, Pose y hệt).
+           - **Prompt #2 -> #${count} (The Variations):** Giữ nguyên Subject/Outfit/Lighting nhưng THAY ĐỔI HOÀN TOÀN Góc chụp (Angle), Cự ly (Distance) và Dáng (Pose).
+             + Ví dụ: Nếu ảnh gốc là Close-up, hãy làm 1 biến thể Full Body góc thấp (Low angle).
+             + Ví dụ: Nếu ảnh gốc nhìn thẳng, hãy làm 1 biến thể nhìn nghiêng (Profile view) hoặc nhìn xa xăm (Looking away).
+             + Bắt buộc dùng từ vựng nhiếp ảnh chuyên nghiệp (Photorealistic terms).
+        * "score": Đánh giá chất lượng (1-10).
+      
+      - "detectedTexts": Mảng chứa các chuỗi văn bản (text) tìm thấy trong ảnh. Nếu không có thì để mảng rỗng.
+      
+      - "suggestions": 3-5 gợi ý ngắn (Tiếng Việt) để cải thiện chất lượng ảnh (ví dụ: đổi lens, thêm fill light, chỉnh khẩu độ).
 
-      - "suggestions": 3-5 gợi ý ngắn gọn (Tiếng Việt) mang tính chuyên môn cao (VD: "Sử dụng key light chếch 45 độ để làm nổi bật khối mặt", "Chú ý texture vải nhung để tăng cảm giác sang trọng").
-
-      Đảm bảo JSON hợp lệ. Không markdown.
+      Không dùng markdown. Chỉ trả về JSON thuần.
     `;
 
-    const response = await ai.models.generateContent({
+    // Wrap the generateContent call with retry logic
+    const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: {
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.45, // Giữ ở mức vừa phải để đảm bảo tính chính xác của chi tiết thời trang
+        temperature: 0.75, // Tăng nhẹ temperature để có nhiều biến thể góc chụp sáng tạo hơn
         topK: 40,
         topP: 0.95,
         responseMimeType: 'application/json',
@@ -77,7 +130,19 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
           properties: {
             prompts: {
               type: Type.ARRAY,
-              items: { type: Type.STRING }
+              items: { 
+                type: Type.OBJECT,
+                properties: {
+                  text: { type: Type.STRING },
+                  score: { type: Type.NUMBER, description: "Rating 1-10" }
+                },
+                required: ["text", "score"]
+              }
+            },
+            detectedTexts: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "List of exact text strings visible in the image"
             },
             suggestions: {
               type: Type.ARRAY,
@@ -87,40 +152,95 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
           required: ["prompts", "suggestions"]
         }
       }
-    });
+    }));
 
     const text = response.text;
     if (!text) {
-      throw new Error("AI không trả về nội dung nào. Có thể ảnh quá phức tạp hoặc bị hệ thống lọc chặn.");
+      throw new Error("AI không trả về nội dung nào.");
     }
 
     try {
       return JSON.parse(text) as AnalysisResult;
     } catch (e) {
-      throw new Error("Lỗi định dạng dữ liệu từ AI. Vui lòng thử lại.");
+      console.error("JSON parse error:", text);
+      throw new Error("Lỗi định dạng dữ liệu từ AI.");
     }
 
   } catch (error: any) {
     console.error("Lỗi khi gọi Gemini API:", error);
-    
-    const msg = error.message || "";
-    
-    if (msg.includes("API_KEY") || msg.includes("400")) {
-      throw new Error("Khóa API không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra cấu hình.");
-    }
-    
-    if (msg.includes("SAFETY") || msg.includes("blocked") || msg.includes("finishReason")) {
-      throw new Error("Hình ảnh bị hệ thống an toàn chặn. Vui lòng thử ảnh khác ít nhạy cảm hơn.");
-    }
-    
-    if (msg.includes("429") || msg.includes("Quota") || msg.includes("resource exhausted")) {
-      throw new Error("Hệ thống đang quá tải hoặc hết hạn ngạch. Vui lòng đợi 1 phút và thử lại.");
-    }
-    
-    if (msg.includes("500") || msg.includes("503") || msg.includes("Failed to fetch")) {
-      throw new Error("Lỗi kết nối mạng hoặc máy chủ Google đang bảo trì.");
-    }
+    // Return original error if possible to let App.tsx analyze it, otherwise wrap
+    throw error;
+  }
+};
 
-    throw new Error(msg || "Đã xảy ra lỗi không xác định khi phân tích hình ảnh.");
+export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem> => {
+  try {
+    const ai = getClient();
+    const promptText = `
+      Bạn là một chuyên gia Prompt Engineering (Midjourney v6/Flux).
+      Nhiệm vụ: Nâng cấp prompt sau lên điểm 10/10 (Photorealistic/High Art).
+      
+      Prompt gốc: "${originalPrompt}"
+      
+      Yêu cầu:
+      1. Giữ nguyên ý nghĩa, nội dung text (nếu có), màu sắc và bố cục gốc.
+      2. Bổ sung từ khóa về chất lượng: "8k resolution, hyper-detailed, photorealistic, masterpiece, cinematic lighting, ray tracing".
+      3. Làm rõ chất liệu (texture) và quang học (camera lens, depth of field).
+      
+      Output JSON: { "text": "...", "score": 10 }
+    `;
+
+    // Wrap the generateContent call with retry logic
+    const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+         parts: [{ text: promptText }]
+      },
+      config: {
+        temperature: 0.7,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            text: { type: Type.STRING },
+            score: { type: Type.NUMBER }
+          },
+          required: ["text", "score"]
+        }
+      }
+    }));
+
+    const text = response.text;
+    if (!text) throw new Error("No response");
+    return JSON.parse(text) as PromptItem;
+
+  } catch (error: any) {
+     console.error("Optimize error:", error);
+     throw new Error("Không thể tối ưu hóa prompt lúc này. Vui lòng thử lại.");
+  }
+};
+
+export const translateText = async (text: string, targetLang: 'en' | 'vi'): Promise<string> => {
+  try {
+    const ai = getClient();
+    const promptText = `Translate the following text to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Keep it concise and accurate. Do not add any explanations.
+    
+    Text: "${text}"`;
+
+    const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: {
+         parts: [{ text: promptText }]
+      },
+      config: {
+        temperature: 0.3,
+        responseMimeType: 'text/plain'
+      }
+    }));
+
+    return response.text?.trim() || text;
+  } catch (error) {
+    console.error("Translation error:", error);
+    throw error;
   }
 };

@@ -1,6 +1,13 @@
+
+export interface PromptItem {
+  text: string;
+  score: number;
+}
+
 export interface AnalysisResult {
-  prompts: string[];
+  prompts: PromptItem[];
   suggestions: string[];
+  detectedTexts?: string[];
 }
 
 export interface ImageFile {

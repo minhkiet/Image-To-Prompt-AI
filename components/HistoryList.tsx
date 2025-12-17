@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HistoryItem } from '../types';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface HistoryListProps {
   history: HistoryItem[];
@@ -12,6 +13,8 @@ const ITEMS_PER_PAGE = 6;
 export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect, onClear }) => {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const observerTarget = useRef<HTMLDivElement>(null);
+  
+  const MotionDiv = motion.div as any;
 
   // Reset visible count when history is cleared or dramatically changes
   useEffect(() => {
@@ -45,8 +48,19 @@ export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect, onC
 
   const visibleHistory = history.slice(0, visibleCount);
 
+  const getPreviewText = (result: any) => {
+    if (!result || !result.prompts || result.prompts.length === 0) return "Không có nội dung";
+    const firstPrompt = result.prompts[0];
+    if (typeof firstPrompt === 'string') return firstPrompt;
+    return firstPrompt.text || "Lỗi định dạng";
+  };
+
   return (
-    <div className="w-full mt-12 animate-fade-in">
+    <MotionDiv 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="w-full mt-12"
+    >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
@@ -64,40 +78,50 @@ export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect, onC
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {visibleHistory.map((item) => (
-          <div
+      <MotionDiv 
+        layout
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+      >
+        <AnimatePresence mode='popLayout'>
+        {visibleHistory.map((item, index) => (
+          <MotionDiv
             key={item.id}
             onClick={() => onSelect(item)}
-            className="group relative bg-white rounded-2xl p-3 border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-purple-200 transition-all duration-300 cursor-pointer overflow-hidden animate-fade-in-up"
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20, delay: (index % ITEMS_PER_PAGE) * 0.05 }}
+            whileHover={{ y: -5, scale: 1.02 }}
+            className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-3 border border-gray-100 shadow-sm hover:shadow-xl hover:border-purple-200 cursor-pointer overflow-hidden"
           >
             <div className="flex gap-4">
               {/* Thumbnail */}
-              <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gray-100 relative">
+              <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden bg-gray-100 relative shadow-inner">
                 <img
                   src={item.image.previewUrl}
                   alt="History thumbnail"
                   loading="lazy"
                   className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500 ease-out"
                 />
+                <div className="absolute inset-0 bg-purple-900/0 group-hover:bg-purple-900/10 transition-colors duration-300" />
               </div>
 
               {/* Info */}
-              <div className="flex flex-col justify-center overflow-hidden">
+              <div className="flex flex-col justify-center overflow-hidden z-10">
                 <p className="text-xs text-gray-400 font-medium mb-1">
                   {new Date(item.timestamp).toLocaleString('vi-VN')}
                 </p>
                 <p className="text-sm font-semibold text-gray-800 line-clamp-2 leading-snug group-hover:text-purple-700 transition-colors duration-300">
-                  {item.result.prompts[0]}
+                  {getPreviewText(item.result)}
                 </p>
               </div>
             </div>
-
-            {/* Hover overlay */}
+            
             <div className="absolute inset-0 bg-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl" />
-          </div>
+          </MotionDiv>
         ))}
-      </div>
+        </AnimatePresence>
+      </MotionDiv>
 
       {/* Loading Sentinel */}
       {visibleCount < history.length && (
@@ -105,6 +129,6 @@ export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect, onC
             <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
         </div>
       )}
-    </div>
+    </MotionDiv>
   );
 };

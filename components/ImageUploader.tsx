@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { ImageFile } from '../types';
 
 interface ImageUploaderProps {
@@ -7,54 +8,50 @@ interface ImageUploaderProps {
   disabled?: boolean;
 }
 
-// Worker code as a string to avoid bundler configuration issues
+// Worker code with support for dynamic format and quality
 const WORKER_CODE = `
   self.onmessage = async (e) => {
-    const { file, maxDimension = 1536, quality = 0.85 } = e.data;
+    const { file, maxDimension = 2048, quality = 0.9, outputFormat = 'image/jpeg' } = e.data;
     
     try {
-      // Create bitmap from file (efficient and off-main-thread compatible)
-      // Note: createImageBitmap can hang on some iOS versions, handled by timeout in main thread
+      // Create bitmap from file
       const bitmap = await createImageBitmap(file);
       let width = bitmap.width;
       let height = bitmap.height;
       
-      // Calculate new dimensions
-      if (width > height) {
-        if (width > maxDimension) {
-          height *= maxDimension / width;
-          width = maxDimension;
-        }
-      } else {
-        if (height > maxDimension) {
-          width *= maxDimension / height;
-          height = maxDimension;
+      // Smart Resize
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+           height *= maxDimension / width;
+           width = maxDimension;
+        } else {
+           width *= maxDimension / height;
+           height = maxDimension;
         }
       }
       
-      // Use OffscreenCanvas for resize/compression
       const offscreen = new OffscreenCanvas(width, height);
       const ctx = offscreen.getContext('2d');
+      
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(bitmap, 0, 0, width, height);
       
-      // Convert to blob
       const blob = await offscreen.convertToBlob({ 
-        type: 'image/jpeg', 
-        quality 
+        type: outputFormat, 
+        quality: quality 
       });
       
-      // Convert blob to Data URL for preview and base64 extraction
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUrl = reader.result;
-        // Basic validation
         if (typeof dataUrl === 'string') {
             const base64 = dataUrl.split(',')[1];
             self.postMessage({ 
                 success: true, 
                 base64, 
                 preview: dataUrl, 
-                mimeType: 'image/jpeg' 
+                mimeType: outputFormat 
             });
         } else {
             self.postMessage({ success: false, error: 'Lỗi chuyển đổi dữ liệu ảnh.' });
@@ -71,10 +68,19 @@ const WORKER_CODE = `
   };
 `;
 
+interface CompressionOptions {
+  maxDimension: number;
+  quality: number;
+  outputFormat: string;
+}
+
 export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, onError, disabled }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const MotionDiv = motion.div as any;
+  const MotionButton = motion.button as any;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -86,8 +92,17 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
     setIsDragging(false);
   };
 
-  // Fallback compression for browsers without OffscreenCanvas support in Workers or if Worker fails/times out
-  const compressImageFallback = (file: File): Promise<{ base64: string, preview: string, mimeType: string }> => {
+  const getCompressionSettings = (file: File): CompressionOptions => {
+    const isHighFidelitySource = file.type === 'image/png' || file.type === 'image/webp';
+    const outputFormat = isHighFidelitySource ? 'image/webp' : 'image/jpeg';
+    return {
+      maxDimension: 2048, 
+      quality: 0.92,
+      outputFormat
+    };
+  };
+
+  const compressImageFallback = (file: File, options: CompressionOptions): Promise<{ base64: string, preview: string, mimeType: string }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -97,17 +112,15 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const MAX_DIMENSION = 1536;
+          const { maxDimension, quality, outputFormat } = options;
 
-          if (width > height) {
-            if (width > MAX_DIMENSION) {
-              height *= MAX_DIMENSION / width;
-              width = MAX_DIMENSION;
-            }
-          } else {
-            if (height > MAX_DIMENSION) {
-              width *= MAX_DIMENSION / height;
-              height = MAX_DIMENSION;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+               height *= maxDimension / width;
+               width = maxDimension;
+            } else {
+               width *= maxDimension / height;
+               height = maxDimension;
             }
           }
 
@@ -118,17 +131,14 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
             reject(new Error("Trình duyệt không hỗ trợ Canvas 2D."));
             return;
           }
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Get Data URL (synchronous on main thread)
           try {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const dataUrl = canvas.toDataURL(outputFormat, quality);
             const base64 = dataUrl.split(',')[1];
-            resolve({
-              base64,
-              preview: dataUrl,
-              mimeType: 'image/jpeg'
-            });
+            resolve({ base64, preview: dataUrl, mimeType: outputFormat });
           } catch (e) {
             reject(new Error("Lỗi khi nén ảnh (Fallback)."));
           }
@@ -141,23 +151,20 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
   };
 
   const compressImageWithWorker = (file: File): Promise<{ base64: string, preview: string, mimeType: string }> => {
+    const settings = getCompressionSettings(file);
     return new Promise((resolve, reject) => {
-      // Check if OffscreenCanvas is supported in this browser environment
       if (!('OffscreenCanvas' in window)) {
-        console.warn('OffscreenCanvas not supported, falling back to main thread.');
-        compressImageFallback(file).then(resolve).catch(reject);
+        compressImageFallback(file, settings).then(resolve).catch(reject);
         return;
       }
 
       let worker: Worker | null = null;
-      // Add timeout to handle iOS Safari hangs (createImageBitmap can sometimes hang indefinitely)
       const timeoutId = setTimeout(() => {
         if (worker) {
           worker.terminate();
-          console.warn('Worker timed out (iOS fix), falling back to main thread.');
-          compressImageFallback(file).then(resolve).catch(reject);
+          compressImageFallback(file, settings).then(resolve).catch(reject);
         }
-      }, 5000); // 5 seconds timeout
+      }, 8000);
 
       try {
         const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
@@ -167,28 +174,25 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
           clearTimeout(timeoutId);
           const { success, base64, preview, mimeType, error } = e.data;
           worker?.terminate();
-
-          if (success) {
-            resolve({ base64, preview, mimeType });
-          } else {
-            // If worker fails, try fallback
-            console.warn('Worker failed:', error);
-            compressImageFallback(file).then(resolve).catch(reject);
-          }
+          if (success) resolve({ base64, preview, mimeType });
+          else compressImageFallback(file, settings).then(resolve).catch(reject);
         };
 
         worker.onerror = (err) => {
           clearTimeout(timeoutId);
           worker?.terminate();
-          console.error('Worker error:', err);
-          compressImageFallback(file).then(resolve).catch(reject);
+          compressImageFallback(file, settings).then(resolve).catch(reject);
         };
 
-        worker.postMessage({ file, maxDimension: 1536, quality: 0.85 });
+        worker.postMessage({ 
+          file, 
+          maxDimension: settings.maxDimension, 
+          quality: settings.quality,
+          outputFormat: settings.outputFormat
+        });
       } catch (e) {
         clearTimeout(timeoutId);
-        console.error('Failed to create worker:', e);
-        compressImageFallback(file).then(resolve).catch(reject);
+        compressImageFallback(file, settings).then(resolve).catch(reject);
       }
     });
   };
@@ -198,22 +202,14 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
       onError('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WebP).');
       return;
     }
-
     if (file.size === 0) {
       onError('File ảnh rỗng hoặc bị lỗi.');
       return;
     }
-
     setIsProcessing(true);
     try {
-      // Use the worker-based compression with safe fallback
       const { base64, preview, mimeType } = await compressImageWithWorker(file);
-      onImageSelected({
-        file,
-        previewUrl: preview,
-        base64,
-        mimeType
-      });
+      onImageSelected({ file, previewUrl: preview, base64, mimeType });
     } catch (error: any) {
       console.error("Error processing image", error);
       onError(error.message || "Có lỗi khi xử lý hình ảnh. Vui lòng thử ảnh khác.");
@@ -223,21 +219,16 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
   };
 
   const handlePasteClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Stop bubbling to parent which triggers file input
+    e.stopPropagation();
     if (disabled || isProcessing) return;
-
     try {
-      // Check if the Clipboard API is supported
       if (!navigator.clipboard || !navigator.clipboard.read) {
-        onError("Trình duyệt của bạn không hỗ trợ nút dán này (yêu cầu HTTPS hoặc localhost). Hãy thử dùng phím tắt Ctrl+V.");
+        onError("Trình duyệt của bạn không hỗ trợ nút dán này. Hãy thử dùng phím tắt Ctrl+V.");
         return;
       }
-
       const clipboardItems = await navigator.clipboard.read();
       let found = false;
-
       for (const item of clipboardItems) {
-        // Prioritize finding an image type
         const imageType = item.types.find(type => type.startsWith('image/'));
         if (imageType) {
           const blob = await item.getType(imageType);
@@ -247,24 +238,17 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
           break;
         }
       }
-
-      if (!found) {
-        onError("Không tìm thấy hình ảnh nào trong bộ nhớ tạm (Clipboard). Hãy copy ảnh trước.");
-      }
+      if (!found) onError("Không tìm thấy hình ảnh nào trong bộ nhớ tạm.");
     } catch (error) {
-      console.error("Paste error:", error);
-      onError("Không thể dán ảnh. Vui lòng cấp quyền truy cập bộ nhớ tạm hoặc sử dụng phím tắt Ctrl+V.");
+      onError("Không thể dán ảnh. Vui lòng sử dụng phím tắt Ctrl+V.");
     }
   };
 
-  // Handle global paste event
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       if (disabled || isProcessing) return;
-
       const items = e.clipboardData?.items;
       if (!items) return;
-
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
           const file = items[i].getAsFile();
@@ -276,7 +260,6 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
         }
       }
     };
-
     document.addEventListener('paste', handlePaste);
     return () => {
       document.removeEventListener('paste', handlePaste);
@@ -287,7 +270,6 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
     e.preventDefault();
     setIsDragging(false);
     if (disabled || isProcessing) return;
-
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFile(e.dataTransfer.files[0]);
     }
@@ -297,28 +279,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
     if (e.target.files && e.target.files.length > 0) {
       processFile(e.target.files[0]);
     }
-    // Reset input value to allow selecting the same file again if needed
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (disabled || isProcessing) return;
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      fileInputRef.current?.click();
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
-    <div
+    <MotionDiv
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-label="Tải ảnh lên"
-      onKeyDown={handleKeyDown}
-      className={`relative group cursor-pointer transition-all duration-300 ease-out border-3 border-dashed rounded-[2rem] p-10 flex flex-col items-center justify-center text-center bg-white shadow-sm hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-purple-200
-        ${isDragging ? 'border-purple-500 bg-purple-50 scale-[1.01] shadow-xl' : 'border-gray-300 hover:border-purple-400'}
+      whileHover={{ scale: disabled || isProcessing ? 1 : 1.02 }}
+      whileTap={{ scale: disabled || isProcessing ? 1 : 0.98 }}
+      className={`relative group cursor-pointer border-4 border-dashed rounded-[3rem] p-10 flex flex-col items-center justify-center text-center bg-white/70 backdrop-blur-sm shadow-xl transition-all duration-300
+        ${isDragging ? 'border-pink-300 bg-pink-50 scale-[1.01] shadow-2xl' : 'border-purple-100 hover:border-pink-300 hover:shadow-pink-200/50'}
         ${disabled || isProcessing ? 'opacity-70 cursor-not-allowed pointer-events-none' : ''}
       `}
       onDragOver={handleDragOver}
@@ -335,52 +307,64 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
         disabled={disabled || isProcessing}
       />
       
+      {/* Animated Glow Effect on Hover */}
+      <div className="absolute inset-0 rounded-[3rem] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+         <div className="absolute inset-0 rounded-[3rem] bg-gradient-to-r from-pink-200/20 to-blue-200/20 blur-2xl"></div>
+      </div>
+      
       {isProcessing ? (
-        <div className="flex flex-col items-center animate-fade-in">
-           <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
-           <p className="text-purple-600 font-bold text-lg">Đang tối ưu hóa ảnh...</p>
-           <p className="text-sm text-gray-400 mt-2 max-w-xs">Hệ thống đang nén và chuẩn bị ảnh để gửi cho Gemini Vision</p>
+        <div className="flex flex-col items-center animate-fade-in relative z-10">
+           <div className="w-20 h-20 border-8 border-pink-100 border-t-pink-400 rounded-full animate-spin mb-6 shadow-lg"></div>
+           <p className="text-pink-500 font-extrabold text-xl animate-pulse">Đang tối ưu hóa ảnh...</p>
+           <p className="text-sm text-gray-500 mt-2 max-w-xs font-semibold">
+             Chờ chút xíu nha, bé điệu đang xử lý...
+           </p>
         </div>
       ) : (
-        <>
-          <div className="w-24 h-24 mb-6 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:bg-purple-100 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="relative z-10 flex flex-col items-center">
+          <MotionDiv 
+            className="w-32 h-32 mb-6 bg-gradient-to-tr from-pink-100 to-white text-pink-500 rounded-full flex items-center justify-center shadow-xl shadow-pink-100 border-4 border-white"
+            animate={{ 
+               y: [0, -8, 0],
+               boxShadow: ["0 10px 15px -3px rgba(249, 168, 212, 0.3)", "0 25px 30px -5px rgba(249, 168, 212, 0.4)", "0 10px 15px -3px rgba(249, 168, 212, 0.3)"]
+            }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-          </div>
+          </MotionDiv>
 
-          <h3 className="text-2xl font-bold text-gray-800 mb-3">Tải ảnh lên</h3>
-          <p className="text-gray-500 text-base max-w-sm mx-auto leading-relaxed mb-6">
+          <h3 className="text-4xl font-black text-gray-700 mb-3 tracking-tight">Tải ảnh lên</h3>
+          <p className="text-gray-500 text-base max-w-sm mx-auto leading-relaxed mb-8 font-semibold">
             Kéo thả hoặc nhấp để chọn ảnh <br/>
-            <span className="text-xs opacity-75">(Hỗ trợ JPG, PNG, WebP)</span>
+            <span className="text-xs font-bold text-pink-500 bg-pink-50 px-3 py-1 rounded-full mt-2 inline-block shadow-sm">JPG, PNG, WebP</span>
           </p>
 
-          <button
+          <MotionButton
             type="button"
             onClick={handlePasteClick}
-            className="relative z-10 mb-8 group/paste-btn overflow-hidden rounded-xl bg-white px-6 py-2.5 text-sm font-bold text-purple-600 shadow-sm ring-1 ring-purple-100 transition-all duration-300 hover:shadow-lg hover:shadow-purple-200/50 hover:ring-transparent active:scale-95"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="relative overflow-hidden rounded-full bg-gradient-to-r from-pink-300 to-rose-300 px-10 py-4 text-base font-black text-white shadow-lg shadow-pink-200 transition-all hover:shadow-xl hover:shadow-pink-300 border-t-2 border-white/50"
           >
-            {/* Gradient Background Layer */}
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 transition-opacity duration-300 group-hover/paste-btn:opacity-100" />
-            
-            {/* Content Layer */}
-            <div className="relative flex items-center gap-2">
+            <span className="relative z-10 flex items-center gap-2 uppercase tracking-wide text-shadow-sm">
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
-                  className="h-5 w-5 transition-colors duration-300 group-hover/paste-btn:text-white" 
+                  className="h-6 w-6" 
                   fill="none" 
                   viewBox="0 0 24 24" 
                   stroke="currentColor"
                 >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
-                <span className="transition-colors duration-300 group-hover/paste-btn:text-white">
-                  Dán ảnh từ Clipboard
-                </span>
-            </div>
-          </button>
-        </>
+                Dán từ Clipboard
+            </span>
+            {/* White shine effect */}
+            <div className="absolute top-0 left-0 w-full h-1/2 bg-white/20 rounded-t-full pointer-events-none" />
+          </MotionButton>
+        </div>
       )}
-    </div>
+    </MotionDiv>
   );
 };
