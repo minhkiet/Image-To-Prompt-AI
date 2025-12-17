@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
 import { PromptDisplay } from './components/PromptDisplay';
@@ -258,234 +259,243 @@ const App: React.FC = () => {
     }
   };
 
-  // Auto-scroll to results when success
-  useEffect(() => {
-    if ((appState === AppState.SUCCESS || appState === AppState.ERROR) && resultsRef.current) {
-      setTimeout(() => {
-        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
-  }, [appState]);
-
   // Logic to determine view state
   // Shared View = No Image AND Has Analysis Result
   const isSharedMode = !image && analysisResult !== null;
-  const showUploader = !image && !isSharedMode;
-  const showResultsContainer = image || isSharedMode || appState === AppState.ERROR;
+  // View Modes: Home (Uploader+History) vs Results
+  const showResultsView = !!(image || isSharedMode);
+  const showHomeView = !showResultsView;
 
   return (
     <div className="min-h-screen flex flex-col font-sans selection:bg-purple-200 selection:text-purple-900 relative">
       <div className="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Header />
 
-        <div className="mt-8 mb-12">
-          {/* Upload Section (Full Width when no image and not sharing) */}
-          {showUploader && (
-            <div className="max-w-3xl mx-auto flex flex-col gap-6 animate-fade-in-up">
-              {/* Configuration Panel */}
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Số lượng Prompt</h3>
-                    <p className="text-xs text-gray-500">Tạo nhiều biến thể dựa trên phong cách gốc</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
-                  <button 
-                    onClick={() => setPromptCount(Math.max(1, promptCount - 1))}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:bg-gray-100 disabled:opacity-50 transition-colors"
-                    disabled={promptCount <= 1}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                    </svg>
-                  </button>
-                  <input
-                    type="number"
-                    min="1"
-                    value={promptCount}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (!isNaN(val) && val > 0) {
-                        setPromptCount(val);
-                      }
-                    }}
-                    className="w-12 text-center font-bold text-gray-800 bg-transparent outline-none appearance-none focus:ring-2 focus:ring-purple-100 rounded-md py-0.5"
-                    aria-label="Nhập số lượng prompt"
-                  />
-                  <button 
-                    onClick={() => setPromptCount(promptCount + 1)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:bg-gray-100 transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <div className="transform transition-all duration-500 hover:-translate-y-1">
-                <ImageUploader onImageSelected={handleImageSelected} onError={handleError} />
-              </div>
-
-              {/* Error Message Display (Only when IDLE but error exists - e.g., upload failed) */}
-              {appState === AppState.ERROR && !image && (
-                 <div className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-4 shadow-sm animate-fade-in">
-                    <div className="p-3 bg-red-100 rounded-xl text-red-600 shrink-0">
-                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                       </svg>
+        <div className="mt-8 mb-12 relative min-h-[400px]">
+          <AnimatePresence mode="wait" initial={false}>
+            {showHomeView ? (
+              <motion.div
+                key="home"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="max-w-3xl mx-auto flex flex-col gap-6"
+              >
+                {/* Configuration Panel */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                      </svg>
                     </div>
                     <div>
-                       <h3 className="text-lg font-bold text-gray-900">Không thể tải ảnh lên</h3>
-                       <p className="text-gray-600 mt-1">{errorMsg}</p>
-                       <p className="text-sm text-gray-500 mt-2">Gợi ý: Hãy thử ảnh định dạng JPG/PNG và dung lượng dưới 10MB.</p>
+                      <h3 className="font-semibold text-gray-800">Số lượng Prompt</h3>
+                      <p className="text-xs text-gray-500">Tạo nhiều biến thể dựa trên phong cách gốc</p>
                     </div>
-                 </div>
-              )}
-            </div>
-          )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
+                    <button 
+                      onClick={() => setPromptCount(Math.max(1, promptCount - 1))}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:bg-gray-100 disabled:opacity-50 transition-colors"
+                      disabled={promptCount <= 1}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                      </svg>
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      value={promptCount}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val) && val > 0) {
+                          setPromptCount(val);
+                        }
+                      }}
+                      className="w-12 text-center font-bold text-gray-800 bg-transparent outline-none appearance-none focus:ring-2 focus:ring-purple-100 rounded-md py-0.5"
+                      aria-label="Nhập số lượng prompt"
+                    />
+                    <button 
+                      onClick={() => setPromptCount(promptCount + 1)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:bg-gray-100 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
 
-          {/* Stacked Layout when image is present OR in shared mode */}
-          {showResultsContainer && (
-            <div className="flex flex-col gap-10 animate-fade-in-up">
-              {/* Top: Image Preview or Shared Placeholder */}
-              <div className="w-full max-w-lg mx-auto flex flex-col gap-6">
-                {image ? (
-                    <div className="bg-white rounded-[2rem] p-3 shadow-xl border border-gray-100 group relative overflow-hidden">
-                    <div className="aspect-square rounded-[1.5rem] overflow-hidden bg-gray-100 relative">
-                        <img 
-                        src={image.previewUrl} 
-                        alt="Uploaded preview" 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
-                        
-                        {appState !== AppState.ANALYZING && (
-                        <button 
-                            onClick={handleReset}
-                            className="absolute top-4 right-4 bg-white/90 hover:bg-red-50 text-gray-500 hover:text-red-500 p-2 rounded-full shadow-lg backdrop-blur-sm transition-all transform hover:rotate-90 z-10"
-                            title="Xóa ảnh"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                        )}
+                <div className="transform transition-all duration-500 hover:-translate-y-1">
+                  <ImageUploader onImageSelected={handleImageSelected} onError={handleError} />
+                </div>
 
-                        {appState !== AppState.ANALYZING && (
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
-                            <button 
-                            onClick={handleReset}
-                            className="bg-white text-gray-900 px-6 py-2.5 rounded-full text-sm font-bold shadow-2xl hover:bg-gray-50 transition-all transform hover:scale-105"
-                            >
-                            Chọn ảnh khác
-                            </button>
-                        </div>
-                        )}
-                    </div>
-                    </div>
-                ) : (
-                    /* Shared View Placeholder */
-                   !image && isSharedMode && (
-                        <div className="bg-white rounded-[2rem] p-8 text-center border border-gray-100 shadow-lg animate-fade-in flex flex-col items-center gap-4">
-                            <div className="w-20 h-20 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shadow-inner">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-800 mb-2">Kết quả được chia sẻ</h3>
-                                <p className="text-gray-500 text-sm max-w-xs mx-auto">
-                                    Bạn đang xem prompt từ liên kết chia sẻ. Hình ảnh gốc không được lưu trữ trong liên kết này.
-                                </p>
-                            </div>
-                            <button 
-                                onClick={handleReset}
-                                className="mt-2 bg-purple-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg active:scale-95"
-                            >
-                                Tạo prompt mới của bạn
-                            </button>
-                        </div>
-                   )
-                )}
-                
-                 {appState === AppState.ERROR && image && (
-                    <div className="w-full bg-white rounded-3xl p-6 shadow-xl border border-red-100 flex flex-col gap-4 animate-fade-in ring-1 ring-red-50">
-                      <div className="flex items-start gap-4">
-                         <div className="p-3 bg-red-100 rounded-xl text-red-600 shrink-0">
-                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                           </svg>
-                         </div>
-                         <div className="flex-grow">
-                           <h3 className="text-lg font-bold text-gray-900">Rất tiếc, đã xảy ra lỗi!</h3>
-                           <p className="text-red-600 font-medium mt-1">{errorMsg}</p>
-                         </div>
-                      </div>
-                      
-                      <div className="bg-red-50 rounded-xl p-4 text-sm text-gray-700">
-                        <p className="font-bold mb-2">Các giải pháp khắc phục:</p>
-                        <ul className="list-disc pl-5 space-y-1 text-gray-600">
-                          <li>Kiểm tra lại kết nối mạng Internet.</li>
-                          <li>Đảm bảo ảnh không chứa nội dung nhạy cảm, bạo lực (AI sẽ từ chối xử lý).</li>
-                          <li>Nếu ảnh quá mờ hoặc quá tối, hãy thử ảnh chất lượng tốt hơn.</li>
-                          <li>Thử tải lại trang và thực hiện lại.</li>
-                        </ul>
-                      </div>
-
-                      <button 
-                        onClick={handleRetry} 
-                        className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex justify-center items-center gap-2"
-                      >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                           <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v3.279a1 1 0 11-2 0V12.9a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                {/* Error Message Display (Only when IDLE but error exists - e.g., upload failed) */}
+                {appState === AppState.ERROR && !image && (
+                   <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="bg-red-50 border border-red-100 rounded-2xl p-6 flex flex-col md:flex-row items-start gap-4 shadow-sm"
+                   >
+                      <div className="p-3 bg-red-100 rounded-xl text-red-600 shrink-0">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                          </svg>
-                         Thử lại ngay
-                      </button>
-                    </div>
-                 )}
-              </div>
+                      </div>
+                      <div>
+                         <h3 className="text-lg font-bold text-gray-900">Không thể tải ảnh lên</h3>
+                         <p className="text-gray-600 mt-1">{errorMsg}</p>
+                         <p className="text-sm text-gray-500 mt-2">Gợi ý: Hãy thử ảnh định dạng JPG/PNG và dung lượng dưới 10MB.</p>
+                      </div>
+                   </motion.div>
+                )}
 
-              {/* Bottom: Results or Loading */}
-              <div className="w-full" ref={resultsRef}>
-                 {/* IDLE state placeholder removed as we usually jump to analyzing immediately */}
+                <HistoryList 
+                  history={history} 
+                  onSelect={handleSelectHistory} 
+                  onClear={handleClearHistory} 
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="results"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="flex flex-col gap-10"
+              >
+                {/* Top: Image Preview or Shared Placeholder */}
+                <div className="w-full max-w-lg mx-auto flex flex-col gap-6">
+                  {image ? (
+                      <div className="bg-white rounded-[2rem] p-3 shadow-xl border border-gray-100 group relative overflow-hidden">
+                      <div className="aspect-square rounded-[1.5rem] overflow-hidden bg-gray-100 relative">
+                          <img 
+                          src={image.previewUrl} 
+                          alt="Uploaded preview" 
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          />
+                          
+                          {appState !== AppState.ANALYZING && (
+                          <button 
+                              onClick={handleReset}
+                              className="absolute top-4 right-4 bg-white/90 hover:bg-red-50 text-gray-500 hover:text-red-500 p-2 rounded-full shadow-lg backdrop-blur-sm transition-all transform hover:rotate-90 z-10"
+                              title="Xóa ảnh"
+                          >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                          </button>
+                          )}
 
-                 {appState === AppState.ANALYZING && <SkeletonLoader />}
-
-                 {appState === AppState.SUCCESS && analysisResult && (
-                   <div className="flex flex-col gap-6 animate-fade-in-up">
-                     <PromptDisplay 
-                        prompts={analysisResult.prompts} 
-                        suggestions={analysisResult.suggestions}
-                     />
-                     <SuggestionsDisplay suggestions={analysisResult.suggestions} />
-                     <WhiskGuide />
-                     <button 
-                        onClick={handleReset} 
-                        className="md:hidden w-full py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium shadow-sm active:bg-gray-50"
+                          {appState !== AppState.ANALYZING && (
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                              <button 
+                              onClick={handleReset}
+                              className="bg-white text-gray-900 px-6 py-2.5 rounded-full text-sm font-bold shadow-2xl hover:bg-gray-50 transition-all transform hover:scale-105"
+                              >
+                              Chọn ảnh khác
+                              </button>
+                          </div>
+                          )}
+                      </div>
+                      </div>
+                  ) : (
+                      /* Shared View Placeholder */
+                     !image && isSharedMode && (
+                          <div className="bg-white rounded-[2rem] p-8 text-center border border-gray-100 shadow-lg animate-fade-in flex flex-col items-center gap-4">
+                              <div className="w-20 h-20 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shadow-inner">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                  </svg>
+                              </div>
+                              <div>
+                                  <h3 className="text-xl font-bold text-gray-800 mb-2">Kết quả được chia sẻ</h3>
+                                  <p className="text-gray-500 text-sm max-w-xs mx-auto">
+                                      Bạn đang xem prompt từ liên kết chia sẻ. Hình ảnh gốc không được lưu trữ trong liên kết này.
+                                  </p>
+                              </div>
+                              <button 
+                                  onClick={handleReset}
+                                  className="mt-2 bg-purple-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg active:scale-95"
+                              >
+                                  Tạo prompt mới của bạn
+                              </button>
+                          </div>
+                     )
+                  )}
+                  
+                   {appState === AppState.ERROR && image && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-full bg-white rounded-3xl p-6 shadow-xl border border-red-100 flex flex-col gap-4 ring-1 ring-red-50"
                       >
-                        Giải mã ảnh khác
-                      </button>
-                   </div>
-                 )}
-              </div>
-            </div>
-          )}
+                        <div className="flex items-start gap-4">
+                           <div className="p-3 bg-red-100 rounded-xl text-red-600 shrink-0">
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                             </svg>
+                           </div>
+                           <div className="flex-grow">
+                             <h3 className="text-lg font-bold text-gray-900">Rất tiếc, đã xảy ra lỗi!</h3>
+                             <p className="text-red-600 font-medium mt-1">{errorMsg}</p>
+                           </div>
+                        </div>
+                        
+                        <div className="bg-red-50 rounded-xl p-4 text-sm text-gray-700">
+                          <p className="font-bold mb-2">Các giải pháp khắc phục:</p>
+                          <ul className="list-disc pl-5 space-y-1 text-gray-600">
+                            <li>Kiểm tra lại kết nối mạng Internet.</li>
+                            <li>Đảm bảo ảnh không chứa nội dung nhạy cảm, bạo lực (AI sẽ từ chối xử lý).</li>
+                            <li>Nếu ảnh quá mờ hoặc quá tối, hãy thử ảnh chất lượng tốt hơn.</li>
+                            <li>Thử tải lại trang và thực hiện lại.</li>
+                          </ul>
+                        </div>
 
-          {/* History Section - Always visible unless empty or in shared mode */}
-          {(!image && !isSharedMode) && (
-            <HistoryList 
-              history={history} 
-              onSelect={handleSelectHistory} 
-              onClear={handleClearHistory} 
-            />
-          )}
+                        <button 
+                          onClick={handleRetry} 
+                          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex justify-center items-center gap-2"
+                        >
+                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                             <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v3.279a1 1 0 11-2 0V12.9a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                           </svg>
+                           Thử lại ngay
+                        </button>
+                      </motion.div>
+                   )}
+                </div>
+
+                {/* Bottom: Results or Loading */}
+                <div className="w-full" ref={resultsRef}>
+                   {/* IDLE state placeholder removed as we usually jump to analyzing immediately */}
+
+                   {appState === AppState.ANALYZING && <SkeletonLoader />}
+
+                   {appState === AppState.SUCCESS && analysisResult && (
+                     <div className="flex flex-col gap-6">
+                       <PromptDisplay 
+                          prompts={analysisResult.prompts} 
+                          suggestions={analysisResult.suggestions}
+                       />
+                       <SuggestionsDisplay suggestions={analysisResult.suggestions} />
+                       <WhiskGuide />
+                       <button 
+                          onClick={handleReset} 
+                          className="md:hidden w-full py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium shadow-sm active:bg-gray-50"
+                        >
+                          Giải mã ảnh khác
+                        </button>
+                     </div>
+                   )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
       
