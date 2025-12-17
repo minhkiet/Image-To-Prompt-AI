@@ -27,6 +27,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect, onC
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
+          // Increase visible count when user scrolls to bottom
           setVisibleCount((prev) => Math.min(prev + ITEMS_PER_PAGE, history.length));
         }
       },
@@ -123,10 +124,27 @@ export const HistoryList: React.FC<HistoryListProps> = ({ history, onSelect, onC
         </AnimatePresence>
       </MotionDiv>
 
-      {/* Loading Sentinel */}
+      {/* Loading Sentinel with Cute Animation */}
       {visibleCount < history.length && (
-        <div ref={observerTarget} className="w-full py-6 flex justify-center items-center">
-            <div className="w-6 h-6 border-2 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+        <div ref={observerTarget} className="w-full py-8 flex flex-col justify-center items-center gap-3 min-h-[100px]">
+            <div className="flex items-center gap-2">
+                <motion.div 
+                    className="w-3 h-3 rounded-full bg-pink-400 shadow-sm"
+                    animate={{ y: ["0%", "-60%", "0%"] }}
+                    transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0 }}
+                />
+                <motion.div 
+                    className="w-3 h-3 rounded-full bg-purple-400 shadow-sm"
+                    animate={{ y: ["0%", "-60%", "0%"] }}
+                    transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
+                />
+                <motion.div 
+                    className="w-3 h-3 rounded-full bg-blue-400 shadow-sm"
+                    animate={{ y: ["0%", "-60%", "0%"] }}
+                    transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                />
+            </div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">Đang tải thêm...</p>
         </div>
       )}
     </MotionDiv>

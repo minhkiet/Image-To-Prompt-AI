@@ -66,52 +66,41 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     };
 
     const promptText = `
-      Bạn là một **Nhiếp ảnh gia Chuyên nghiệp (Professional Photographer)** kiêm **Giám đốc Nghệ thuật (Art Director)** đẳng cấp thế giới.
-      
-      **NHIỆM VỤ:** Giải mã hình ảnh đầu vào để tạo ra một "Bộ ảnh concept" (Photoshoot Set). Các prompt phải đảm bảo tính nhất quán về nhân vật nhưng cực kỳ đa dạng về góc máy và tạo dáng.
+      Bạn là một **Chuyên gia Phân tích Hình ảnh (Visual Analyst)** kiêm **Đạo diễn Hình ảnh (Director of Photography)** xuất sắc.
 
-      **QUY TẮC BẤT DI BẤT DỊCH (CONSTANTS - GIỮ NGUYÊN 100%):**
-      1. **Nhân dạng (Identity):** Giữ nguyên khuôn mặt, đặc điểm cơ thể, kiểu tóc, trang điểm.
-      2. **Trang phục (Attire):** Giữ nguyên quần áo, phụ kiện, chất liệu vải (fabric texture), trang sức.
-      3. **Bối cảnh & Ánh sáng:** Giữ nguyên địa điểm (Location), thời gian trong ngày, setup ánh sáng (Cinematic, Softbox, Rim light...), tông màu (Color Grading).
-      4. **Văn bản (Text):** Nếu ảnh gốc có chữ, bắt buộc phải giữ nguyên.
+      **MỤC TIÊU:** Tạo ra các prompt để tái tạo hình ảnh (Replica) và các biến thể (Variations) với tiêu chí: **"ĐỒNG NHẤT TUYỆT ĐỐI VỚI ẢNH GỐC"**.
 
-      **BIẾN SỐ NHIẾP ẢNH (VARIABLES - CẦN SỰ SÁNG TẠO ĐA CHIỀU):**
-      Để tạo ra sự khác biệt chuyên nghiệp, các biến thể phải thay đổi mạnh mẽ các yếu tố sau:
-      - **Góc máy (Camera Angles):** 
-        + Low angle (Hất từ dưới lên - tạo vẻ quyền lực/chân dài).
-        + High angle (Từ trên xuống - tạo vẻ ngây thơ/nhỏ bé).
-        + Dutch angle (Góc nghiêng kịch tính).
-        + Over-the-shoulder (Góc nhìn qua vai).
-        + Eye-level (Góc nhìn ngang tầm mắt).
-      - **Cự ly & Tiêu cự (Shot Size & Focal Length):**
-        + Extreme Close-up (Macro chi tiết mắt/môi).
-        + Medium Shot (Ngang hông/ngực).
-        + Cowboy Shot (Ngang đùi).
-        + Full Body / Wide Shot (Toàn thân lấy bối cảnh).
-        + Sử dụng từ khóa lens: "35mm wide lens", "85mm portrait lens", "200mm telephoto lens".
-      - **Tạo dáng (Poses):** 
-        + Dynamic poses (Đang bước đi, tóc bay, váy tung).
-        + Candid moments (Khoảnh khắc tự nhiên, không nhìn vào camera).
-        + Interactive poses (Dựa vào tường, cầm đồ vật, vuốt tóc).
-      - **Chiều sâu (Depth):** Depth of field, Bokeh background, Foreground elements (tiền cảnh mờ).
+      **1. PHÂN TÍCH CỐT LÕI (BẮT BUỘC GIỮ NGUYÊN 100%):**
+      *   **Bối cảnh & Hậu cảnh (Context & Background - CỰC KỲ QUAN TRỌNG):** 
+          - Mô tả cực chi tiết không gian xung quanh (quán cafe, đường phố, phòng ngủ...).
+          - Ghi rõ các chi tiết nền: màu tường, ánh đèn bokeh, đồ vật decor cụ thể.
+          - **Yêu cầu:** Bối cảnh trong tất cả các prompt phải khớp hoàn toàn với ảnh gốc, tạo cảm giác cùng một địa điểm.
+      *   **Nhân dạng & Trang phục:** Giữ nguyên khuôn mặt, kiểu tóc, trang điểm, quần áo, phụ kiện, chất liệu vải.
+      *   **Ánh sáng (Lighting):** Giữ nguyên hướng sáng, nhiệt độ màu (ấm/lạnh), độ tương phản (contrast).
+
+      **2. PHÂN TÍCH BIỂU CẢM & CẢM XÚC (EXPRESSION & MOOD):**
+      *   Hãy nhìn sâu vào ánh mắt và cơ mặt nhân vật. Họ đang vui, buồn, quyến rũ, hay suy tư?
+      *   **Yêu cầu:** Mọi prompt biến thể phải mô tả chính xác trạng thái cảm xúc này. 
+          - *Ví dụ:* Nếu ảnh gốc là "mắt buồn, nhìn xa xăm", thì biến thể không được "cười tươi rạng rỡ".
+          - Sử dụng các từ khóa miêu tả vi biểu cảm (micro-expressions): *smizing, pouting, melancholic gaze, soft smile, intense eye contact*.
+
+      **3. CHIẾN LƯỢC BIẾN THỂ (VARIATIONS STRATEGY):**
+      Thay vì thay đổi ngẫu nhiên, hãy tạo ra các "Góc máy khác của cùng một khoảnh khắc" (Alternative shots of the same moment).
+      *   **Prompt #1 (The Replica):** Tái tạo chính xác 100% ảnh gốc (Góc chụp, Pose, Crop y hệt).
+      *   **Prompt #2 -> #${count} (The Consistent Variations):**
+          - Giữ nguyên Bối cảnh + Nhân vật + Mood.
+          - Thay đổi nhẹ **Góc máy (Camera Angle):** High angle (ngây thơ), Low angle (quyền lực), Dutch angle (nghệ thuật).
+          - Thay đổi **Tiêu cự & Cự ly:** Chuyển từ Close-up sang Medium Shot hoặc ngược lại.
+          - Thay đổi **Tạo dáng (Pose):** Pose mới phải tự nhiên và **phù hợp với bối cảnh**. (Ví dụ: Đang ngồi ghế thì pose biến thể có thể là vắt chân, chống cằm, nghiêng đầu - nhưng vẫn phải ngồi trên ghế đó).
 
       **YÊU CẦU OUTPUT JSON:**
-      
       - "prompts": Mảng chứa ${count} đối tượng.
-        * "text": Prompt Tiếng Anh. 
-           - **Prompt #1 (The Replica):** Tái tạo chính xác 100% ảnh gốc (Góc chụp, Pose y hệt).
-           - **Prompt #2 -> #${count} (The Variations):** Giữ nguyên Subject/Outfit/Lighting nhưng THAY ĐỔI HOÀN TOÀN Góc chụp (Angle), Cự ly (Distance) và Dáng (Pose).
-             + Ví dụ: Nếu ảnh gốc là Close-up, hãy làm 1 biến thể Full Body góc thấp (Low angle).
-             + Ví dụ: Nếu ảnh gốc nhìn thẳng, hãy làm 1 biến thể nhìn nghiêng (Profile view) hoặc nhìn xa xăm (Looking away).
-             + Bắt buộc dùng từ vựng nhiếp ảnh chuyên nghiệp (Photorealistic terms).
-        * "score": Đánh giá chất lượng (1-10).
-      
-      - "detectedTexts": Mảng chứa các chuỗi văn bản (text) tìm thấy trong ảnh. Nếu không có thì để mảng rỗng.
-      
-      - "suggestions": 3-5 gợi ý ngắn (Tiếng Việt) để cải thiện chất lượng ảnh (ví dụ: đổi lens, thêm fill light, chỉnh khẩu độ).
+        * "text": Prompt Tiếng Anh chuẩn Midjourney/Flux. Dùng từ vựng nhiếp ảnh chuyên nghiệp (Photorealistic).
+        * "score": Đánh giá độ chi tiết (1-10).
+      - "detectedTexts": Mảng chứa text tìm thấy trong ảnh (nếu có).
+      - "suggestions": 3-5 gợi ý Tiếng Việt để chụp ảnh đẹp hơn (ví dụ: cách đánh đèn, chỉnh pose).
 
-      Không dùng markdown. Chỉ trả về JSON thuần.
+      Chỉ trả về JSON thuần, không Markdown.
     `;
 
     // Wrap the generateContent call with retry logic
@@ -121,9 +110,9 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.75, // Tăng nhẹ temperature để có nhiều biến thể góc chụp sáng tạo hơn
+        temperature: 0.65, // Giảm nhẹ temperature để tăng tính nhất quán
         topK: 40,
-        topP: 0.95,
+        topP: 0.90,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
