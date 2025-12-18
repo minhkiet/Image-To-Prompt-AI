@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi">
   <head>
@@ -7,25 +8,44 @@
     <title>Trợ Lý Bé Điệu Siêu Cấp Cute</title>
     <link rel="icon" href="https://i.pinimg.com/736x/5c/7a/2d/5c7a2decdf0731e810f0c547f7d755d3.jpg">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Changed font to Nunito for a rounder, cuter look -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Nunito', 'sans-serif'], // Kawaii font
+              sans: ['Nunito', 'sans-serif'],
+            },
+            borderRadius: {
+              'kawaii': '2.5rem',
+              'kawaii-inner': '2rem',
             },
             colors: {
               kawaii: {
-                pink: '#FFB7D5',
-                pinkDark: '#FF9ECA',
-                blue: '#A5EAFF',
-                blueDark: '#8BE0FF',
-                yellow: '#FFF5BA',
-                yellowDark: '#FFEFA0',
+                pink: {
+                  50: '#FFF5F9',
+                  100: '#FFB7D5',
+                  400: '#FF9ECA',
+                  500: '#FF85B2',
+                  600: '#F06292',
+                },
+                blue: {
+                  100: '#A5EAFF',
+                  400: '#8BE0FF',
+                  500: '#5AC8FA',
+                },
+                yellow: {
+                  100: '#FFF5BA',
+                  400: '#FFEFA0',
+                  500: '#FFD54F',
+                },
+                bg: '#f8fafc',
                 text: '#6B4C5E'
               }
+            },
+            boxShadow: {
+              'kawaii-pink': '0 10px 25px -5px rgba(255, 183, 213, 0.4)',
+              'kawaii-purple': '0 10px 25px -5px rgba(168, 85, 247, 0.2)',
             },
             animation: {
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -60,28 +80,14 @@
                 '100%': { backgroundPosition: '1000px 0' }
               },
               'gradient-x': {
-                '0%, 100%': {
-                    'background-size': '200% 200%',
-                    'background-position': 'left center'
-                },
-                '50%': {
-                    'background-size': '200% 200%',
-                    'background-position': 'right center'
-                },
+                '0%, 100%': { 'background-size': '200% 200%', 'background-position': 'left center' },
+                '50%': { 'background-size': '200% 200%', 'background-position': 'right center' },
               },
               blob: {
-                "0%": {
-                  transform: "translate(0px, 0px) scale(1)",
-                },
-                "33%": {
-                  transform: "translate(30px, -50px) scale(1.1)",
-                },
-                "66%": {
-                  transform: "translate(-20px, 20px) scale(0.9)",
-                },
-                "100%": {
-                  transform: "translate(0px, 0px) scale(1)",
-                },
+                "0%": { transform: "translate(0px, 0px) scale(1)" },
+                "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+                "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+                "100%": { transform: "translate(0px, 0px) scale(1)" },
               },
               squish: {
                  '0%': { transform: 'scale(1)' },
@@ -104,35 +110,53 @@
         background-repeat: no-repeat;
         min-height: 100vh;
       }
-      /* Subtle white overlay to ensure text/cards contrast remains high */
       body::before {
         content: '';
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        top: 0; left: 0; right: 0; bottom: 0;
         background: rgba(255, 255, 255, 0.4); 
         backdrop-filter: blur(5px);
         z-index: -1;
         pointer-events: none;
       }
       
-      /* Smooth scrollbar */
-      ::-webkit-scrollbar {
-        width: 10px;
+      /* Shared Kawaii Components Styles */
+      .kawaii-card {
+        background: white;
+        border-radius: 2.5rem;
+        border: 2px solid white;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
       }
-      ::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.5); 
+      
+      .kawaii-glass {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 2px solid rgba(255, 255, 255, 0.5);
       }
+
+      .kawaii-btn-shine {
+        position: relative;
+        overflow: hidden;
+      }
+      .kawaii-btn-shine::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 9999px 9999px 0 0;
+        pointer-events: none;
+      }
+
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.5); }
       ::-webkit-scrollbar-thumb {
         background: #FFB7D5; 
         border-radius: 10px;
         border: 2px solid #fff;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #FF9ECA; 
-      }
+      ::-webkit-scrollbar-thumb:hover { background: #FF9ECA; }
     </style>
   <script type="importmap">
 {

@@ -41,12 +41,12 @@ const retryOperation = async <T>(
         throw error;
       }
 
-      // Exponential backoff: Wait longer if it's a rate limit error
+      // Exponential backoff
       const delay = isRateLimit 
         ? (baseDelay * Math.pow(2, i)) + 1000 
         : baseDelay * Math.pow(2, i);
       
-      console.warn(`Gemini API retry attempt ${i + 1}/${retries} after ${delay}ms. Reason: ${isRateLimit ? 'Rate Limit' : 'Network/Server'}`);
+      console.warn(`Gemini API retry attempt ${i + 1}/${retries} after ${delay}ms.`);
       await wait(delay);
     }
   }
@@ -65,63 +65,49 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
       }
     };
 
-    // MERGED PROMPT: Combines Analysis + Optimization + Variations in ONE shot for maximum speed.
+    const mandatoryPrefix = "Create a highly realistic studio portrait of the Subject from the uploaded photo, ensuring Subject face is 99.99% identical to the reference.";
+
     const promptText = `
-      You are a world-class Art Director and Fashion Analyst.
-      
-      GOAL: Analyze the image and generate ${count} ultra-precise, "Ready-to-Use" fashion editorial prompts.
-      
-      CRITICAL INSTRUCTION: Apply the "ART DIRECTOR LOCK SYSTEM" immediately to ALL generated prompts. Do not generate a draft first. Generate the final polished version directly.
+      You are a world-class Art Director, Fashion Photographer, and Reverse Prompt Engineer.
+      GOAL: Analyze the image and decode it into a base "Absolute Replica" (Bản Sao Hoàn Hảo) prompt, and generate ${count} editorial variations.
 
-      ––––––––––––––––––––––
-      1. ANALYSIS PHASE (Internal Processing)
-      - Scan for: Jewelry details (material, cut), Garment specs (fabric, fit), and Lighting (key/fill).
-      - Analyze the vibe and aesthetic.
+      CRITICAL MANDATORY RULE:
+      Every prompt you generate MUST start exactly with this sentence:
+      "${mandatoryPrefix}"
 
-      ––––––––––––––––––––––
-      2. GENERATION RULES (Apply to EVERY prompt)
+      CRITICAL FOCUS 1: MASTER SUBJECT DESCRIPTION
+      Describe the subject in extreme detail. This description must be consistent in all prompts:
+      - CLOTHING: Specific garments, materials (silk, organza, denim, etc.), and textures.
+      - ACCESSORIES & JEWELRY: Detail every item (earrings, necklaces, belts, eyewear).
+      - HAIR & BEAUTY: Precise hairstyle, hair texture, and makeup style.
+      - IDENTITY: Lock the facial features.
 
-      Structure every prompt with these layers:
+      CRITICAL FOCUS 2: TEXT & TYPOGRAPHY
+      If the image contains text, identify exact words, font, color, size, and position. 
+      In variations, keep the SAME text but reposition it logically to fit the new pose/angle.
 
-      [LAYER 1: CHARACTER LOCK]
-      - Start with: "Create a highly realistic studio portrait of the woman/man from the uploaded photo, ensuring face is 99.99% identical to the reference."
-      - Add: "same person, identical bone structure, consistent identity, no face variation."
+      VARIATION DIRECTION: 
+      - ONLY vary: Poses, Camera Angles, Shot Distance, and Text Placement.
+      - THE SUBJECT (CLOTHES, HAIR, FACE) MUST NEVER CHANGE.
 
-      [LAYER 2: FASHION LOCK]
-      - Add: "exact same outfit, identical garments, same fabric texture, same jewelry pieces, same accessories, no outfit drift."
-
-      [LAYER 3: CAMPAIGN SPECS]
-      - Add: "shot on full-frame camera, 85mm lens, aperture f/2.8, soft directional studio lighting, ultra-high resolution, 8k, Vogue-level styling."
-
-      [LAYER 4: TEXT SIGNATURE]
-      - Add: "visible text signature in the bottom right corner, cute and aesthetic font style, small size."
-
-      ––––––––––––––––––––––
-      3. VARIATION STRATEGY
-      
-      - Prompt #1: Absolute Replica (Same pose, same angle).
-      - Prompt #2-${count}: Editorial Variations. Keep Identity and Outfit LOCKED. Only change Camera Angle (Low angle, Profile), Focal Length, or Micro-Expressions.
-
-      ––––––––––––––––––––––
-      4. OUTPUT FORMAT (JSON ONLY)
+      OUTPUT FORMAT (JSON ONLY)
       {
         "prompts": [
-          { "text": "Full optimized prompt...", "score": 10 }
+          { "text": "${mandatoryPrefix} [Detailed Subject] + [Original Typography] + [Original Pose]", "score": 10 },
+          { "text": "${mandatoryPrefix} [Detailed Subject] + [Repositioned Typography] + [New Pose/Angle]", "score": 10 }
         ],
-        "detectedTexts": ["Any visible text in image"],
-        "suggestions": ["3 short tips for photography"]
+        "detectedTexts": ["Exact words found in image"],
+        "suggestions": ["Design tips"]
       }
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.65,
-        topK: 40,
-        topP: 0.90,
+        temperature: 0.5,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -157,7 +143,6 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
     try {
       return JSON.parse(text) as AnalysisResult;
     } catch (e) {
-      console.error("JSON parse error:", text);
       throw new Error("Lỗi định dạng dữ liệu từ AI.");
     }
 
@@ -170,28 +155,30 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
 export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem> => {
   try {
     const ai = getClient();
-    const promptText = `
-      You are a Professional Fashion Photographer using the "ART DIRECTOR SYSTEM".
-      TASK: Upgrade this prompt to 10/10 quality.
-      INPUT: "${originalPrompt}"
-      
-      MANDATORY LAYERS:
-      1. Start with: "Create a highly realistic studio portrait of the man/woman from the uploaded photo, ensuring him/her face is 99.99% identical to the reference."
-      2. Append: "same person, identical bone structure, no face variation."
-      3. Append: "exact same outfit, identical garments, same jewelry, same accessories."
-      4. Tech Specs: "85mm lens, f/2.8, soft lighting, 8k resolution, masterpiece."
-      5. Signature: "visible text signature in the bottom right corner, cute and aesthetic font style."
+    const mandatoryPrefix = "Create a highly realistic studio portrait of the Subject from the uploaded photo, ensuring Subject face is 99.99% identical to the reference.";
 
-      OUTPUT JSON: { "text": "Final string...", "score": 10 }
+    const promptText = `
+      You are a Professional Graphic Design & Photography Consultant.
+      TASK: Optimize this prompt for maximum realism while strictly preserving every detail of the subject's outfit and identity.
+      
+      RULES:
+      1. MANDATORY START: The optimized prompt MUST start with: "${mandatoryPrefix}"
+      2. Subject Integrity: Do not remove details about fabrics, jewelry, or hairstyle. Refine to professional terminology.
+      3. Typography Clarity: Ensure text instructions are integrated.
+      4. Technical Polish: Enhance camera and lighting specs.
+
+      INPUT: "${originalPrompt}"
+
+      OUTPUT JSON: { "text": "${mandatoryPrefix} [Polished Details]", "score": 10 }
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: {
          parts: [{ text: promptText }]
       },
       config: {
-        temperature: 0.75,
+        temperature: 0.7,
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -217,10 +204,10 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
 export const translateText = async (text: string, targetLang: 'en' | 'vi'): Promise<string> => {
   try {
     const ai = getClient();
-    const promptText = `Translate to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Concise. Text: "${text}"`;
+    const promptText = `Translate to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Do NOT translate the prefix "Create a highly realistic studio portrait..." if it exists. Keep technical fashion and photography terms accurate. Text: "${text}"`;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: {
          parts: [{ text: promptText }]
       },
