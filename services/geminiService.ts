@@ -13,11 +13,11 @@ const getClient = () => {
 // Helper function to pause execution
 export const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Generic retry wrapper for API calls
+// Generic retry wrapper for API calls with faster backoff
 const retryOperation = async <T>(
   operation: () => Promise<T>, 
   retries: number = 3, 
-  baseDelay: number = 2000
+  baseDelay: number = 1000
 ): Promise<T> => {
   let lastError: any;
   
@@ -28,7 +28,6 @@ const retryOperation = async <T>(
       lastError = error;
       const errorMessage = (error.message || JSON.stringify(error)).toLowerCase();
       
-      // Identify retryable errors
       const isRateLimit = errorMessage.includes('429') || errorMessage.includes('resource exhausted') || errorMessage.includes('quota');
       const isNetwork = 
         errorMessage.includes('500') || 
@@ -41,12 +40,10 @@ const retryOperation = async <T>(
         throw error;
       }
 
-      // Exponential backoff
       const delay = isRateLimit 
-        ? (baseDelay * Math.pow(2, i)) + 1000 
+        ? (baseDelay * Math.pow(2, i)) + 500 
         : baseDelay * Math.pow(2, i);
       
-      console.warn(`Gemini API retry attempt ${i + 1}/${retries} after ${delay}ms.`);
       await wait(delay);
     }
   }
@@ -65,40 +62,37 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
       }
     };
 
-    const mandatoryPrefix = "Create a highly realistic studio portrait of the Subject from the uploaded photo, ensuring Subject face is 99.99% identical to the reference.";
+    // Updated Prefix: Locks identity and details found in the deep scan
+    const mandatoryPrefix = "Create a highly realistic studio portrait of the subject from the uploaded photo, ensuring subject face is 99.99% identical to the reference.";
 
     const promptText = `
-      You are a world-class Art Director, Fashion Photographer, and Reverse Prompt Engineer.
-      GOAL: Analyze the image and decode it into a base "Absolute Replica" (Bản Sao Hoàn Hảo) prompt, and generate ${count} editorial variations.
+      You are an Elite AI Visionary & Hyper-Detail Image Analyst.
+      GOAL: Perform a pixel-perfect scan of the uploaded image and generate ${count} comprehensive prompts.
 
-      CRITICAL MANDATORY RULE:
-      Every prompt you generate MUST start exactly with this sentence:
-      "${mandatoryPrefix}"
+      PHASE 1: DEEP SCAN ANALYSIS (Internal Processing)
+      You must internally analyze and extract every single detail to ensure perfect consistency:
+      1. **SUBJECT**: Exact age, ethnicity, skin texture (pores, moles), makeup details, eye color, body shape, exact hairstyle & color.
+      2. **FASHION**: Every garment, specific fabrics (e.g., rib-knit, sheer organza, distressed denim, satin), patterns, folds, stitching, footwear.
+      3. **ACCESSORIES**: Jewelry (gold/silver, gemstone type), glasses, hats, bags, handheld items (phones, flowers).
+      4. **ENVIRONMENT**: Specific location (indoor/outdoor), architectural style, furniture, nature elements, weather, time of day.
+      5. **AESTHETICS**: Lighting source (softbox, natural, neon, rim light), color grade (e.g., teal & orange, pastel, noir), film grain, lens effects (bokeh, flare).
 
-      CRITICAL FOCUS 1: MASTER SUBJECT DESCRIPTION
-      Describe the subject in extreme detail. This description must be consistent in all prompts:
-      - CLOTHING: Specific garments, materials (silk, organza, denim, etc.), and textures.
-      - ACCESSORIES & JEWELRY: Detail every item (earrings, necklaces, belts, eyewear).
-      - HAIR & BEAUTY: Precise hairstyle, hair texture, and makeup style.
-      - IDENTITY: Lock the facial features.
+      PHASE 2: PROMPT GENERATION RULES:
 
-      CRITICAL FOCUS 2: TEXT & TYPOGRAPHY
-      If the image contains text, identify exact words, font, color, size, and position. 
-      In variations, keep the SAME text but reposition it logically to fit the new pose/angle.
+      **Prompt 1: THE PERFECT REPLICA (Total Detail Integration)**
+      - Combine ALL details from PHASE 1 into a rich, descriptive paragraph.
+      - Describe the exact pose and camera angle of the reference.
+      - Use sensory details: "shimmering satin", "rough concrete", "golden hour glow", "volumetric fog".
 
-      VARIATION DIRECTION: 
-      - ONLY vary: Poses, Camera Angles, Shot Distance, and Text Placement.
-      - THE SUBJECT (CLOTHES, HAIR, FACE) MUST NEVER CHANGE.
+      **Prompt 2 to ${count}: THE ARTISTIC VARIATIONS (Same Details, New Perspectives)**
+      - **KEEP**: The Subject, Outfit, Accessories, Colors, and Background Context MUST remain exactly as analyzed in Phase 1.
+      - **CHANGE**: The Camera Angle, Pose, and Photography Style.
+      - **INJECT PROFESSIONAL STYLES**:
+         - **Poses**: "Walking confidently towards camera", "Dynamic fashion pose", "Sitting elegantly", "Candid moment", "Touching hair", "Looking over shoulder".
+         - **Angles**: "Low angle hero shot" (for power), "High angle editorial", "Close-up portrait" (details), "Wide angle environmental".
+         - **Tech Specs**: "Shot on 35mm", "85mm f/1.2 bokeh", "Kodak Portra 400", "Cinematic lighting", "High fashion editorial".
 
-      OUTPUT FORMAT (JSON ONLY)
-      {
-        "prompts": [
-          { "text": "${mandatoryPrefix} [Detailed Subject] + [Original Typography] + [Original Pose]", "score": 10 },
-          { "text": "${mandatoryPrefix} [Detailed Subject] + [Repositioned Typography] + [New Pose/Angle]", "score": 10 }
-        ],
-        "detectedTexts": ["Exact words found in image"],
-        "suggestions": ["Design tips"]
-      }
+      MANDATORY: Start every prompt with: "${mandatoryPrefix}"
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
@@ -107,7 +101,8 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.5,
+        temperature: 0.75, 
+        thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -123,10 +118,6 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
                 required: ["text", "score"]
               }
             },
-            detectedTexts: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            },
             suggestions: {
               type: Type.ARRAY,
               items: { type: Type.STRING }
@@ -139,15 +130,9 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
 
     const text = response.text;
     if (!text) throw new Error("AI không trả về nội dung.");
-
-    try {
-      return JSON.parse(text) as AnalysisResult;
-    } catch (e) {
-      throw new Error("Lỗi định dạng dữ liệu từ AI.");
-    }
-
+    return JSON.parse(text) as AnalysisResult;
   } catch (error: any) {
-    console.error("Lỗi khi gọi Gemini API:", error);
+    console.error("Lỗi Gemini API:", error);
     throw error;
   }
 };
@@ -155,21 +140,15 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
 export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem> => {
   try {
     const ai = getClient();
-    const mandatoryPrefix = "Create a highly realistic studio portrait of the Subject from the uploaded photo, ensuring Subject face is 99.99% identical to the reference.";
-
     const promptText = `
-      You are a Professional Graphic Design & Photography Consultant.
-      TASK: Optimize this prompt for maximum realism while strictly preserving every detail of the subject's outfit and identity.
+      Professional Prompt Optimizer.
+      GOAL: Upgrade this prompt to "Award-Winning Photography" level.
       
-      RULES:
-      1. MANDATORY START: The optimized prompt MUST start with: "${mandatoryPrefix}"
-      2. Subject Integrity: Do not remove details about fabrics, jewelry, or hairstyle. Refine to professional terminology.
-      3. Typography Clarity: Ensure text instructions are integrated.
-      4. Technical Polish: Enhance camera and lighting specs.
-
-      INPUT: "${originalPrompt}"
-
-      OUTPUT JSON: { "text": "${mandatoryPrefix} [Polished Details]", "score": 10 }
+      INSTRUCTIONS:
+      1.  **Preserve Identity**: Do NOT change the description of the person, clothes, or main setting.
+      2.  **Enhance Aesthetics**: Add professional keywords for lighting (e.g., volumetric lighting), texture (e.g., subsurface scattering), and composition.
+      3.  **Conciseness**: Remove redundant words, focus on visual impact.
+      4.  Input: "${originalPrompt}"
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
@@ -178,7 +157,8 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
          parts: [{ text: promptText }]
       },
       config: {
-        temperature: 0.7,
+        temperature: 0.5,
+        thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -194,9 +174,7 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
     const text = response.text;
     if (!text) throw new Error("No response");
     return JSON.parse(text) as PromptItem;
-
   } catch (error: any) {
-     console.error("Optimize error:", error);
      throw new Error("Không thể tối ưu hóa prompt lúc này.");
   }
 };
@@ -204,7 +182,16 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
 export const translateText = async (text: string, targetLang: 'en' | 'vi'): Promise<string> => {
   try {
     const ai = getClient();
-    const promptText = `Translate to ${targetLang === 'en' ? 'English' : 'Vietnamese'}. Do NOT translate the prefix "Create a highly realistic studio portrait..." if it exists. Keep technical fashion and photography terms accurate. Text: "${text}"`;
+    const promptText = `
+      Task: Translate the following text to ${targetLang === 'en' ? 'English' : 'Vietnamese'}.
+      
+      Constraints:
+      1. Keep fashion technical terms (e.g., organza, ethereal, sheer, bokeh, shot on 35mm) in English.
+      2. Keep camera terms and specific identity prefixes in English.
+      3. **CRITICAL**: Return ONLY the translated text directly. Do NOT include any introductory phrases like "Here is the translation" or "Dưới đây là bản dịch".
+      
+      Text to translate: "${text}"
+    `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -212,14 +199,13 @@ export const translateText = async (text: string, targetLang: 'en' | 'vi'): Prom
          parts: [{ text: promptText }]
       },
       config: {
-        temperature: 0.3,
-        responseMimeType: 'text/plain'
+        temperature: 0.1,
+        thinkingConfig: { thinkingBudget: 0 }
       }
     }));
 
     return response.text?.trim() || text;
   } catch (error) {
-    console.error("Translation error:", error);
-    throw error;
+    return text;
   }
 };
