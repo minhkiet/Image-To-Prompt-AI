@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ImageFile } from '../types';
@@ -360,7 +361,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, o
                 onClick={handlePasteClick}
                 disabled={disabled || isProcessing}
                 whileHover={{ scale: disabled || isProcessing ? 1 : 1.05, translateY: -3 }}
-                whileTap={{ scale: disabled || isProcessing ? 1 : 0.95 }}
+                whileTap={{ scale: disabled || isProcessing ? 1 : 0.92 }}
                 transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 className={`relative overflow-hidden rounded-full bg-gradient-to-r from-pink-400 via-rose-400 to-pink-500 px-10 py-4 text-base font-black text-white shadow-lg transition-all border-b-4 border-rose-600/30
                   ${disabled || isProcessing ? 'grayscale opacity-60 cursor-not-allowed shadow-none' : 'shadow-kawaii-pink hover:shadow-2xl hover:shadow-pink-300'}

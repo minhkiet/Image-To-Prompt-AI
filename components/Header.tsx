@@ -96,7 +96,7 @@ export const Header: React.FC = () => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.8 }}
           >
-            Khám phá câu lệnh "thần chú" đằng sau những bức ảnh tuyệt đẹp của bạn chỉ với một cú chạm! 🪄
+            Khám phá câu lệnh "thần chú" đằng sau những bức ảnh tuyệt đẹp của bạn chỉ với một cú chạm! 💖
           </MotionP>
         </div>
       </MotionDiv>

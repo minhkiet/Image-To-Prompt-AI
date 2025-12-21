@@ -62,8 +62,8 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
       }
     };
 
-    // Updated Prefix: Locks identity and details found in the deep scan
-    const mandatoryPrefix = "Create a highly realistic studio portrait of the subject from the uploaded photo, ensuring subject face is 99.99% identical to the reference.";
+    // Updated Prefix: Locks ALL visual elements including Composition and Style
+    const mandatoryPrefix = "Create a high-fidelity photorealistic image. Strictly maintain the Subject (Identity, Hair, Body), Outfit (Fabric, Cut, Colors, Details), Accessories, Background Context, Lighting, and Composition (Pose & Framing) from the reference. ";
 
     const promptText = `
       You are an Elite AI Visionary & Hyper-Detail Image Analyst.
@@ -73,24 +73,26 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
       You must internally analyze and extract every single detail to ensure perfect consistency:
       1. **SUBJECT**: Exact age, ethnicity, skin texture (pores, moles), makeup details, eye color, body shape, exact hairstyle & color.
       2. **FASHION**: Every garment, specific fabrics (e.g., rib-knit, sheer organza, distressed denim, satin), patterns, folds, stitching, footwear.
-      3. **ACCESSORIES**: Jewelry (gold/silver, gemstone type), glasses, hats, bags, handheld items (phones, flowers).
-      4. **ENVIRONMENT**: Specific location (indoor/outdoor), architectural style, furniture, nature elements, weather, time of day.
-      5. **AESTHETICS**: Lighting source (softbox, natural, neon, rim light), color grade (e.g., teal & orange, pastel, noir), film grain, lens effects (bokeh, flare).
+      3. **ACCESSORIES**: Jewelry (gold/silver, gemstone type), glasses, hats, bags, handheld items.
+      4. **ENVIRONMENT (CONTEXT)**: Exact location (indoor/outdoor), architectural style, furniture, nature elements, weather, time of day.
+      5. **AESTHETICS & EFFECTS**: Lighting source (softbox, natural, neon, rim light), color grade, film grain, lens effects (bokeh, flare).
+      6. **COMPOSITION (Bố Cục)**: Exact camera angle (high/low/eye-level), framing (close-up/wide), subject placement, pose.
 
       PHASE 2: PROMPT GENERATION RULES:
 
-      **Prompt 1: THE PERFECT REPLICA (Total Detail Integration)**
-      - Combine ALL details from PHASE 1 into a rich, descriptive paragraph.
-      - Describe the exact pose and camera angle of the reference.
-      - Use sensory details: "shimmering satin", "rough concrete", "golden hour glow", "volumetric fog".
+      **Prompt 1: THE FORENSIC REPLICA (Detailed Description)**
+      - Describe everything exactly as seen in the image.
+      - List all details from Phase 1 clearly and objectively.
+      - Focus on accuracy of the scene, lighting, and colors.
 
-      **Prompt 2 to ${count}: THE ARTISTIC VARIATIONS (Same Details, New Perspectives)**
-      - **KEEP**: The Subject, Outfit, Accessories, Colors, and Background Context MUST remain exactly as analyzed in Phase 1.
-      - **CHANGE**: The Camera Angle, Pose, and Photography Style.
-      - **INJECT PROFESSIONAL STYLES**:
-         - **Poses**: "Walking confidently towards camera", "Dynamic fashion pose", "Sitting elegantly", "Candid moment", "Touching hair", "Looking over shoulder".
-         - **Angles**: "Low angle hero shot" (for power), "High angle editorial", "Close-up portrait" (details), "Wide angle environmental".
-         - **Tech Specs**: "Shot on 35mm", "85mm f/1.2 bokeh", "Kodak Portra 400", "Cinematic lighting", "High fashion editorial".
+      **Prompt 2 to ${count}: THE HIGH-FASHION EDITORIAL (Artistic Enhancement)**
+      - **CRITICAL**: Do NOT change the Subject, Outfit, Context, or **COMPOSITION**. The image content must remain consistent.
+      - **GOAL**: Upgrade the *description* to be more "Vogue/Harper's Bazaar" quality. Use evocative, sensory, and professional photography vocabulary to describe the *same* scene.
+      - **Enhance**:
+         - Instead of "wearing a red dress", use "draped in a crimson silk chiffon gown".
+         - Instead of "sunlight", use "bathed in golden hour ethereal glow".
+         - Instead of "looking at camera", use "piercing gaze engaging the viewer".
+         - Mention specific film stocks (Kodak Portra 400), camera gears (Hasselblad, 85mm f/1.2), and render engines (Unreal Engine 5, Octane Render) to boost quality.
 
       MANDATORY: Start every prompt with: "${mandatoryPrefix}"
     `;
@@ -101,7 +103,7 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.75, 
+        temperature: 0.65, // Balanced for creativity vs accuracy in Flash model
         thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: {
@@ -145,7 +147,7 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
       GOAL: Upgrade this prompt to "Award-Winning Photography" level.
       
       INSTRUCTIONS:
-      1.  **Preserve Identity**: Do NOT change the description of the person, clothes, or main setting.
+      1.  **Preserve Identity & Composition**: Do NOT change the description of the person, clothes, setting, or pose.
       2.  **Enhance Aesthetics**: Add professional keywords for lighting (e.g., volumetric lighting), texture (e.g., subsurface scattering), and composition.
       3.  **Conciseness**: Remove redundant words, focus on visual impact.
       4.  Input: "${originalPrompt}"

@@ -45,7 +45,13 @@ const SkeletonLoader = () => {
   }, []);
 
   return (
-    <div className="w-full bg-white rounded-[2.5rem] shadow-xl overflow-hidden border-2 border-white flex flex-col min-h-[400px]">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="w-full bg-white rounded-[2.5rem] shadow-xl overflow-hidden border-2 border-white flex flex-col min-h-[400px]"
+    >
       <div className="bg-pink-50/50 px-8 py-6 border-b border-pink-100 flex items-center justify-between">
         <div className="h-6 bg-pink-100 rounded-full w-32 animate-pulse"></div>
         <div className="h-10 bg-pink-100 rounded-full w-24 animate-pulse"></div>
@@ -78,9 +84,11 @@ const SkeletonLoader = () => {
                {loadingText}
              </p>
              <div className="w-64 h-3 bg-gray-100 rounded-full overflow-hidden mx-auto shadow-inner border border-gray-200">
-               <div 
-                 className="h-full bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300 transition-all duration-100 ease-linear"
-                 style={{ width: `${progress}%` }}
+               <motion.div 
+                 className="h-full bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300"
+                 initial={{ width: 0 }}
+                 animate={{ width: `${progress}%` }}
+                 transition={{ ease: "linear" }}
                />
              </div>
              <p className="text-xs text-gray-400 font-bold font-mono pt-1">
@@ -89,7 +97,7 @@ const SkeletonLoader = () => {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -113,6 +121,7 @@ const App: React.FC = () => {
   const resultsRef = useRef<HTMLDivElement>(null);
   
   const MotionDiv = motion.div as any;
+  const MotionButton = motion.button as any;
 
   const normalizePrompts = (prompts: any[]): PromptItem[] => {
     return prompts.map(p => {
@@ -409,7 +418,16 @@ const App: React.FC = () => {
      else if (isQuota) icon = ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /> </svg> );
 
      return (
-        <MotionDiv initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`w-full bg-white rounded-[2.5rem] p-6 shadow-xl border-2 flex flex-col gap-4 ${isSafety ? 'border-amber-200' : 'border-red-200'}`} >
+        <MotionDiv 
+            initial={{ opacity: 0, scale: 0.9, x: 0 }} 
+            animate={{ 
+                opacity: 1, 
+                scale: 1,
+                x: [0, -10, 10, -5, 5, 0] 
+            }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className={`w-full bg-white rounded-[2.5rem] p-6 shadow-xl border-2 flex flex-col gap-4 ${isSafety ? 'border-amber-200' : 'border-red-200'}`} 
+        >
             <div className="flex items-start gap-4">
                 <div className={`p-3 rounded-full shrink-0 ${isSafety ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}> {icon} </div>
                 <div className="flex-grow">
@@ -422,8 +440,22 @@ const App: React.FC = () => {
                 <ul className="space-y-2"> {details.suggestions.map((suggestion, idx) => ( <li key={idx} className="flex items-start gap-2"> <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current opacity-60 flex-shrink-0"></span> <span>{suggestion}</span> </li> ))} </ul>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button onClick={handleRetry} className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white font-extrabold rounded-full shadow-lg shadow-red-200 transition-all active:scale-95 flex justify-center items-center gap-2 border-b-4 border-red-700" > Thử lại ngay </button>
-                <button onClick={handleReset} className="flex-1 py-3.5 bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-extrabold rounded-full transition-all active:scale-95 flex justify-center items-center gap-2 border-b-4" > Chọn ảnh khác </button>
+                <MotionButton 
+                    onClick={handleRetry} 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white font-extrabold rounded-full shadow-lg shadow-red-200 transition-all flex justify-center items-center gap-2 border-b-4 border-red-700" 
+                > 
+                    Thử lại ngay 
+                </MotionButton>
+                <MotionButton 
+                    onClick={handleReset} 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex-1 py-3.5 bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-extrabold rounded-full transition-all flex justify-center items-center gap-2 border-b-4" 
+                > 
+                    Chọn ảnh khác 
+                </MotionButton>
             </div>
         </MotionDiv>
      );
@@ -436,8 +468,20 @@ const App: React.FC = () => {
         <div className="mt-8 mb-12 relative min-h-[400px]">
           <AnimatePresence mode="wait" initial={false}>
             {showHomeView ? (
-              <MotionDiv key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3, ease: "easeOut" }} className="max-w-3xl mx-auto flex flex-col gap-6" >
-                <div className="bg-white rounded-[2rem] p-5 shadow-sm border-2 border-white flex flex-col sm:flex-row items-center justify-between gap-4">
+              <MotionDiv 
+                key="home" 
+                initial={{ opacity: 0, x: -20, scale: 0.95 }} 
+                animate={{ opacity: 1, x: 0, scale: 1 }} 
+                exit={{ opacity: 0, x: 20, scale: 0.95 }} 
+                transition={{ type: "spring", stiffness: 300, damping: 25 }} 
+                className="max-w-3xl mx-auto flex flex-col gap-6" 
+              >
+                <motion.div 
+                   className="bg-white rounded-[2rem] p-5 shadow-sm border-2 border-white flex flex-col sm:flex-row items-center justify-between gap-4"
+                   initial={{ y: -10, opacity: 0 }}
+                   animate={{ y: 0, opacity: 1 }}
+                   transition={{ delay: 0.1 }}
+                >
                   <div className="flex items-center gap-3">
                     <div className="p-3 bg-blue-100 text-blue-500 rounded-full border border-blue-200">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /> </svg>
@@ -448,32 +492,40 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-full border border-gray-100 shadow-inner">
-                    <button onClick={() => setPromptCount(Math.max(1, promptCount - 1))} className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-gray-500 shadow-md hover:bg-gray-100 hover:text-pink-500 disabled:opacity-50 transition-all" disabled={promptCount <= 1} >
+                    <MotionButton 
+                        onClick={() => setPromptCount(Math.max(1, promptCount - 1))} 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.8 }}
+                        disabled={promptCount <= 1}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-gray-500 shadow-md hover:bg-gray-100 hover:text-pink-500 disabled:opacity-50 transition-colors"
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M20 12H4" /> </svg>
-                    </button>
+                    </MotionButton>
                     <input type="number" min="1" value={promptCount} onChange={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val > 0) setPromptCount(val); }} className="w-12 text-center font-black text-xl text-gray-700 bg-transparent outline-none appearance-none" aria-label="Nhập số lượng prompt" />
-                    <button onClick={() => setPromptCount(promptCount + 1)} className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-gray-500 shadow-md hover:bg-gray-100 hover:text-pink-500 transition-all" >
+                    <MotionButton 
+                        onClick={() => setPromptCount(promptCount + 1)} 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.8 }}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white text-gray-500 shadow-md hover:bg-gray-100 hover:text-pink-500 transition-colors" 
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /> </svg>
-                    </button>
+                    </MotionButton>
                   </div>
-                </div>
-                <div className="transform transition-all duration-500 hover:-translate-y-1"> <ImageUploader onImageSelected={handleImageSelected} onError={handleError} /> </div>
-                {appState === AppState.ERROR && errorDetails && !image && (
-                   <MotionDiv initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-red-50 border-2 border-red-100 rounded-[2rem] p-6 flex flex-col gap-3 shadow-sm" >
-                      <div className="flex items-start gap-3">
-                        <div className="p-3 bg-red-100 rounded-full text-red-600 shrink-0"> <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /> </svg> </div>
-                        <div>
-                            <h3 className="text-lg font-black text-gray-800">{errorDetails.title}</h3>
-                            <p className="text-gray-600 mt-1 font-medium">{errorDetails.message}</p>
-                        </div>
-                      </div>
-                      <div className="pl-14"> <ul className="list-disc pl-5 space-y-1 text-sm text-gray-500 font-medium"> {errorDetails.suggestions.map((s, i) => <li key={i}>{s}</li>)} </ul> </div>
-                   </MotionDiv>
-                )}
+                </motion.div>
+                
+                <div className="transform transition-all duration-500 hover:-translate-y-1 z-10"> <ImageUploader onImageSelected={handleImageSelected} onError={handleError} /> </div>
+                
                 <HistoryList history={history} onSelect={handleSelectHistory} onClear={handleClearHistory} />
               </MotionDiv>
             ) : (
-              <MotionDiv key="results" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex flex-col gap-10" >
+              <MotionDiv 
+                key="results" 
+                initial={{ opacity: 0, x: 20, scale: 0.95 }} 
+                animate={{ opacity: 1, x: 0, scale: 1 }} 
+                exit={{ opacity: 0, x: -20, scale: 0.95 }} 
+                transition={{ type: "spring", stiffness: 300, damping: 25 }} 
+                className="flex flex-col gap-10" 
+              >
                 {/* Enhanced Image Inspector */}
                 {image ? (
                     <div className="animate-fade-in">
@@ -484,16 +536,32 @@ const App: React.FC = () => {
                     </div>
                 ) : (
                    !image && isSharedMode && (
-                        <div className="w-full max-w-lg mx-auto bg-white rounded-[2.5rem] p-8 text-center border-4 border-white shadow-xl animate-fade-in flex flex-col items-center gap-4">
-                            <div className="w-24 h-24 bg-purple-100 text-purple-500 rounded-full flex items-center justify-center shadow-inner border-4 border-purple-50">
+                        <motion.div 
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: "spring", bounce: 0.5 }}
+                            className="w-full max-w-lg mx-auto bg-white rounded-[2.5rem] p-8 text-center border-4 border-white shadow-xl flex flex-col items-center gap-4"
+                        >
+                            <motion.div 
+                                animate={{ y: [0, -10, 0] }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                                className="w-24 h-24 bg-purple-100 text-purple-500 rounded-full flex items-center justify-center shadow-inner border-4 border-purple-50"
+                            >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-6" /> </svg>
-                            </div>
+                            </motion.div>
                             <div>
                                 <h3 className="text-2xl font-black text-gray-800 mb-2">Kết quả được chia sẻ</h3>
                                 <p className="text-gray-500 max-w-xs mx-auto"> Đây là các prompt đã được giải mã từ trước. </p>
                             </div>
-                            <button onClick={handleReset} className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-full shadow-lg transition-all transform active:scale-95" > Bắt đầu phân tích mới </button>
-                        </div>
+                            <MotionButton 
+                                onClick={handleReset} 
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-full shadow-lg transition-all" 
+                            > 
+                                Bắt đầu phân tích mới 
+                            </MotionButton>
+                        </motion.div>
                     )
                 )}
 
@@ -508,7 +576,16 @@ const App: React.FC = () => {
                         <WhiskGuide />
                       </div>
                     </div>
-                    <div className="mt-12 text-center pb-12"> <button onClick={handleReset} className="bg-white border-2 border-gray-100 hover:border-pink-200 hover:text-pink-600 text-gray-500 px-8 py-3 rounded-full font-bold shadow-sm hover:shadow-md transition-all transform active:scale-95" > ✨ Phân tích ảnh khác </button> </div>
+                    <div className="mt-12 text-center pb-12"> 
+                        <MotionButton 
+                            onClick={handleReset} 
+                            whileHover={{ scale: 1.05, rotate: [-1, 1, -1, 0] }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-white border-2 border-gray-100 hover:border-pink-200 hover:text-pink-600 text-gray-500 px-8 py-3 rounded-full font-bold shadow-sm hover:shadow-md transition-all" 
+                        > 
+                            ✨ Phân tích ảnh khác 
+                        </MotionButton> 
+                    </div>
                   </div>
                 )}
               </MotionDiv>
@@ -516,7 +593,7 @@ const App: React.FC = () => {
           </AnimatePresence>
         </div>
       </div>
-      <AnimatePresence> {showScrollTop && ( <motion.button initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} onClick={scrollToTop} className="fixed bottom-6 right-6 p-4 bg-white/80 backdrop-blur-md border-2 border-pink-100 text-pink-500 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 hover:-translate-y-1 transition-all z-50 group" > <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" /> </svg> </motion.button> )} </AnimatePresence>
+      <AnimatePresence> {showScrollTop && ( <motion.button initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} whileHover={{ scale: 1.1, rotate: 10 }} whileTap={{ scale: 0.9 }} onClick={scrollToTop} className="fixed bottom-6 right-6 p-4 bg-white/80 backdrop-blur-md border-2 border-pink-100 text-pink-500 rounded-full shadow-xl hover:shadow-2xl transition-all z-50 group" > <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 10l7-7m0 0l7 7m-7-7v18" /> </svg> </motion.button> )} </AnimatePresence>
     </div>
   );
 };
