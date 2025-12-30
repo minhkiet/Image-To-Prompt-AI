@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PromptItem } from '../types';
@@ -16,7 +15,7 @@ interface PromptDisplayProps {
 type FontType = 'font-mono' | 'font-sans' | 'font-serif';
 type LanguageType = 'en' | 'vi';
 
-// --- Components con tách biệt (Fix lỗi re-render làm mất click) ---
+// --- Components con tách biệt ---
 
 const MotionDiv = motion.div as any;
 const MotionButton = motion.button as any;
@@ -49,6 +48,81 @@ const KawaiiButton = ({ color, onClick, disabled, children, active, className = 
     >
       {children}
     </MotionButton>
+  );
+};
+
+interface DetectedTextItemProps { 
+  text: string; 
+  currentValue: string; 
+  onChange: (val: string) => void;
+  onTranslate: (originalKey: string, lang: 'en' | 'vi') => Promise<void>;
+}
+
+const DetectedTextItem: React.FC<DetectedTextItemProps> = ({ 
+  text, 
+  currentValue, 
+  onChange, 
+  onTranslate 
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleTranslateClick = async (lang: 'en' | 'vi') => {
+    setIsTranslating(true);
+    await onTranslate(text, lang);
+    setIsTranslating(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-3 bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm hover:border-amber-200 transition-colors group">
+       <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span className="text-xs font-black text-gray-400 uppercase tracking-widest flex-shrink-0">Gốc:</span>
+            <span className="text-sm font-bold text-gray-800 truncate" title={text}>"{text}"</span>
+          </div>
+          <button 
+             onClick={() => inputRef.current?.focus()}
+             className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition-colors uppercase tracking-wide border border-amber-100"
+          >
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+             </svg>
+             Edit
+          </button>
+       </div>
+       
+       <div className="relative">
+          <input 
+            ref={inputRef}
+            type="text" 
+            value={currentValue} 
+            onChange={(e) => onChange(e.target.value)} 
+            className="w-full pl-4 pr-4 py-3 rounded-xl border-2 border-amber-50 bg-amber-50/30 text-gray-800 text-sm font-bold outline-none focus:border-amber-400 focus:bg-white transition-all shadow-inner placeholder-amber-300/50" 
+            placeholder={`Thay thế cho "${text}"`} 
+          />
+       </div>
+
+       <div className="flex items-center justify-end gap-2 border-t border-dashed border-gray-100 pt-2.5 mt-1">
+           <span className="text-[9px] font-bold text-gray-300 uppercase mr-auto tracking-wider">Dịch nhanh:</span>
+           <button 
+               onClick={() => handleTranslateClick('en')}
+               disabled={isTranslating}
+               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 text-[10px] font-black uppercase tracking-wide transition-all disabled:opacity-50 hover:shadow-sm"
+           >
+               {isTranslating ? <span className="animate-spin block w-3 h-3 border-2 border-current border-t-transparent rounded-full"></span> : <span>🇺🇸 EN</span>}
+           </button>
+           <button 
+               onClick={() => handleTranslateClick('vi')}
+               disabled={isTranslating}
+               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 text-[10px] font-black uppercase tracking-wide transition-all disabled:opacity-50 hover:shadow-sm"
+           >
+               {isTranslating ? <span className="animate-spin block w-3 h-3 border-2 border-current border-t-transparent rounded-full"></span> : <span>🇻🇳 VI</span>}
+           </button>
+       </div>
+    </div>
   );
 };
 
@@ -129,7 +203,8 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
         const newOverrides = { ...textOverrides };
         for (const original of detectedTexts) {
              try {
-                 const translated = await translateText(textOverrides[original] || original, targetLang);
+                 const source = textOverrides[original] || original;
+                 const translated = await translateText(source, targetLang);
                  newOverrides[original] = translated;
                  setTextOverrides({...newOverrides}); 
                  await wait(200); 
@@ -138,6 +213,16 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     } finally {
         setIsBatchTranslating(false);
     }
+  };
+
+  const handleIndividualTranslate = async (originalKey: string, targetLang: 'en' | 'vi') => {
+      const source = textOverrides[originalKey] || originalKey;
+      try {
+        const translated = await translateText(source, targetLang);
+        handleTextOverrideChange(originalKey, translated);
+      } catch (e) {
+        console.error("Individual translation failed", e);
+      }
   };
 
   const cleanTypography = (text: string) => {
@@ -323,9 +408,15 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     return 'bg-yellow-100 text-yellow-600 border-yellow-200';
   };
 
+  const getScoreDescription = (score: number) => {
+    if (score >= 9) return "Xuất sắc! Chi tiết cao, đúng style nghệ thuật.";
+    if (score >= 7) return "Tốt! Đủ dùng, có thể cần chỉnh sửa nhẹ.";
+    return "Trung bình. Nên dùng tính năng 'Tối ưu' để cải thiện.";
+  };
+
   return (
     <div className="w-full space-y-6">
-      {/* Sticky Control Bar - Added pointer-events-auto */}
+      {/* Sticky Control Bar */}
       <MotionDiv 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -421,37 +512,20 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                    {['en', 'vi'].map(lang => (
                       <MotionButton key={lang} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleBatchTranslateOverrides(lang as any)} disabled={isBatchTranslating} className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-black uppercase rounded-full border-2 transition-all shadow-sm cursor-pointer ${lang === 'en' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-red-50 text-red-600 border-red-100'} disabled:opacity-50`} >
                          {isBatchTranslating ? <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : <span>{lang === 'en' ? '🇺🇸' : '🇻🇳'}</span>}
-                         Dịch từ khóa
+                         Dịch tất cả
                       </MotionButton>
                    ))}
                </div>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {detectedTexts.map((text, idx) => (
-                <div key={idx} className="flex flex-col gap-2 bg-white p-4 rounded-2xl border-2 border-amber-100 shadow-sm hover:border-amber-200 transition-colors">
-                   <div className="flex items-center gap-2 px-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <label className="text-xs font-black text-amber-600 truncate uppercase tracking-tight">
-                        Văn bản gốc: <span className="text-gray-900 normal-case">"{text}"</span>
-                      </label>
-                   </div>
-                   <div className="relative">
-                      <input 
-                        type="text" 
-                        value={textOverrides[text] || text} 
-                        onChange={(e) => handleTextOverrideChange(text, e.target.value)} 
-                        className="w-full px-4 py-3 rounded-xl border-2 border-amber-50 bg-amber-50/30 text-gray-800 text-sm font-bold outline-none focus:border-amber-400 focus:bg-white transition-all shadow-inner" 
-                        placeholder={`Thay thế cho "${text}"`} 
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                         </svg>
-                      </div>
-                   </div>
-                </div>
+                <DetectedTextItem 
+                    key={idx}
+                    text={text}
+                    currentValue={textOverrides[text] !== undefined ? textOverrides[text] : text}
+                    onChange={(val) => handleTextOverrideChange(text, val)}
+                    onTranslate={handleIndividualTranslate}
+                />
               ))}
            </div>
         </MotionDiv>
@@ -472,7 +546,16 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                     <span className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-black shadow-inner ring-4 ring-white ${isMain ? 'bg-pink-300 text-white' : 'bg-gray-200 text-gray-400'}`}>{index + 1}</span>
                     <div className="flex items-center gap-2">
                         <span className={`font-black text-sm uppercase tracking-tight ${isMain ? 'text-pink-600' : 'text-gray-500'}`}>{isMain ? "Bản Sao Hoàn Hảo" : `Biến Thể ${index}`}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border uppercase ${getScoreStyles(promptItem.score || 0)}`}>{promptItem.score}/10</span>
+                        {/* Score Badge with Tooltip */}
+                        <div className="relative group/score cursor-help z-10">
+                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border uppercase ${getScoreStyles(promptItem.score || 0)}`}>
+                             {promptItem.score}/10
+                           </span>
+                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 p-2 bg-gray-800 text-white text-[10px] rounded-lg opacity-0 group-hover/score:opacity-100 transition-opacity pointer-events-none text-center font-medium shadow-xl">
+                             {getScoreDescription(promptItem.score || 0)}
+                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                           </div>
+                        </div>
                     </div>
                  </div>
                  <div className="flex items-center gap-2">

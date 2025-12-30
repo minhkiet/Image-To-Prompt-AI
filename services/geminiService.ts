@@ -32,7 +32,7 @@ const retryOperation = async <T>(
       const isNetwork = 
         errorMessage.includes('500') || 
         errorMessage.includes('503') || 
-        errorMessage.includes('fetch failed') ||
+        errorMessage.includes('fetch failed') || 
         errorMessage.includes('network error') ||
         errorMessage.includes('overloaded');
 
@@ -62,39 +62,35 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
       }
     };
 
-    // Updated Prefix: Locks ALL visual elements including Composition and Style
-    const mandatoryPrefix = "Create a high-fidelity photorealistic image. Strictly maintain the Subject (Identity, Hair, Body), Outfit (Fabric, Cut, Colors, Details), Accessories, Background Context, Lighting, and Composition (Pose & Framing) from the reference. ";
-
     const promptText = `
-      You are an Elite AI Visionary & Hyper-Detail Image Analyst.
-      GOAL: Perform a pixel-perfect scan of the uploaded image and generate ${count} comprehensive prompts.
+      You are an Elite AI Art Director & Cinematic Storyboard Artist.
+      GOAL: Analyze the uploaded image to create a "Character Consistency Storyboard" with ${count} distinct scenes.
 
-      PHASE 1: DEEP SCAN ANALYSIS (Internal Processing)
-      You must internally analyze and extract every single detail to ensure perfect consistency:
-      1. **SUBJECT**: Exact age, ethnicity, skin texture (pores, moles), makeup details, eye color, body shape, exact hairstyle & color.
-      2. **FASHION**: Every garment, specific fabrics (e.g., rib-knit, sheer organza, distressed denim, satin), patterns, folds, stitching, footwear.
-      3. **ACCESSORIES**: Jewelry (gold/silver, gemstone type), glasses, hats, bags, handheld items.
-      4. **ENVIRONMENT (CONTEXT)**: Exact location (indoor/outdoor), architectural style, furniture, nature elements, weather, time of day.
-      5. **AESTHETICS & EFFECTS**: Lighting source (softbox, natural, neon, rim light), color grade, film grain, lens effects (bokeh, flare).
-      6. **COMPOSITION (Bố Cục)**: Exact camera angle (high/low/eye-level), framing (close-up/wide), subject placement, pose.
+      PHASE 1: CHARACTER LOCK (The Anchor)
+      Analyze and lock the following details to ensure consistency across ALL prompts:
+      1. **IDENTITY**: Exact face, age, ethnicity, skin details, hairstyle, and hair color.
+      2. **OUTFIT**: Every garment, fabric, accessory, and shoe detail.
+      3. **STYLE**: The visual aesthetic (e.g., Photorealistic, Anime, Oil Painting).
 
-      PHASE 2: PROMPT GENERATION RULES:
+      PHASE 2: STORYBOARD GENERATION
 
-      **Prompt 1: THE FORENSIC REPLICA (Detailed Description)**
-      - Describe everything exactly as seen in the image.
-      - List all details from Phase 1 clearly and objectively.
-      - Focus on accuracy of the scene, lighting, and colors.
+      **Prompt 1: THE REFERENCE SHOT (Exact Reconstruction)**
+      - Describe the original image exactly as is.
+      - **Focus**: Accurate lighting, pose, and background from the source.
+      - **Start with**: "Frame 1 (Reference): [Full Character Description]... ensuring subject face is 99.99% identical to the reference."
 
-      **Prompt 2 to ${count}: THE HIGH-FASHION EDITORIAL (Artistic Enhancement)**
-      - **CRITICAL**: Do NOT change the Subject, Outfit, Context, or **COMPOSITION**. The image content must remain consistent.
-      - **GOAL**: Upgrade the *description* to be more "Vogue/Harper's Bazaar" quality. Use evocative, sensory, and professional photography vocabulary to describe the *same* scene.
-      - **Enhance**:
-         - Instead of "wearing a red dress", use "draped in a crimson silk chiffon gown".
-         - Instead of "sunlight", use "bathed in golden hour ethereal glow".
-         - Instead of "looking at camera", use "piercing gaze engaging the viewer".
-         - Mention specific film stocks (Kodak Portra 400), camera gears (Hasselblad, 85mm f/1.2), and render engines (Unreal Engine 5, Octane Render) to boost quality.
+      **Prompt 2 to ${count}: THE CINEMATIC SCENES (Variations)**
+      - **RULE 1 (CONSISTENCY)**: The Character (Face, Body, Hair) and Outfit MUST BE IDENTICAL to Prompt 1.
+      - **RULE 2 (DIVERSITY)**: You MUST change the Scene, Angle, Framing, and Pose for each prompt.
+      
+      **Generate diverse scenarios using these variables**:
+      - **CONTEXT (Bối cảnh)**: Change locations (e.g., Coffee Shop, Busy Street, Neon Rooftop, Luxury Interior, Beach at Sunset, Snowy Park).
+      - **CAMERA ANGLE (Góc chụp)**: Low Angle (Heroic), High Angle (Vulnerable), Dutch Angle (Dynamic), Over-the-shoulder, Eye-level.
+      - **FRAMING (Khoảng cách)**: Extreme Close-up (Eyes/Lips), Medium Shot (Waist up), Cowboy Shot (Knees up), Wide Shot (Full Body + Environment).
+      - **POSE (Dáng)**: Dynamic action (Running, Dancing), Candid (Laughing, Fixing hair), Resting (Sitting, Leaning), Editorial (High Fashion Posing).
 
-      MANDATORY: Start every prompt with: "${mandatoryPrefix}"
+      **Structure for Prompts 2-${count}**:
+      "Cinematic shot. [Insert Character & Outfit Description from Phase 1]. The character is [Action/Pose] in [New Environment/Context]. Shot from a [Camera Angle] with [Framing]. Lighting is [Lighting Style], ensuring subject face is 99.99% identical to the reference."
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
@@ -103,7 +99,7 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.65, // Balanced for creativity vs accuracy in Flash model
+        temperature: 0.75, // Increased slightly for more creative variations
         thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: {
@@ -147,8 +143,8 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
       GOAL: Upgrade this prompt to "Award-Winning Photography" level.
       
       INSTRUCTIONS:
-      1.  **Preserve Identity & Composition**: Do NOT change the description of the person, clothes, setting, or pose.
-      2.  **Enhance Aesthetics**: Add professional keywords for lighting (e.g., volumetric lighting), texture (e.g., subsurface scattering), and composition.
+      1.  **Preserve Core Elements**: Do NOT change the description of the person or clothes.
+      2.  **Enhance Aesthetics**: Add professional keywords for lighting (e.g., volumetric lighting, rim light), texture (e.g., 8k, highly detailed), and camera gear.
       3.  **Conciseness**: Remove redundant words, focus on visual impact.
       4.  Input: "${originalPrompt}"
     `;
