@@ -21,6 +21,7 @@ const SkeletonLoader = () => {
       'Đang phân tích khuôn mặt & trang phục...',
       'Đang trích xuất prompt chuẩn Art Director...',
       'Đang hoàn thiện các biến thể...',
+      'Đang tối ưu hóa kết quả...',
     ];
     
     let stepIndex = 0;
@@ -299,6 +300,17 @@ const App: React.FC = () => {
             console.warn("Auto-translation failed", err);
         }
       }
+
+      // Automatically optimize the prompt at index 1 (the first variation) if it exists
+      if (result.prompts.length > 1) {
+          try {
+             const optimizedPrompt = await optimizePrompt(result.prompts[1].text);
+             result.prompts[1] = optimizedPrompt;
+          } catch(e) {
+             console.warn("Failed to auto-optimize index 1", e);
+          }
+      }
+
       setAnalysisResult(result);
       setAppState(AppState.SUCCESS);
       addToHistory(img, result);

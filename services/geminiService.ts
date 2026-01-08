@@ -62,35 +62,65 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
       }
     };
 
+    // Prompt mẫu chuẩn "Gold Standard" từ người dùng
+    const referencePrompt = `
+      Create a portrait of a young woman with a fresh, delicate face and naturally smooth, radiant skin. She wears light makeup in soft pink–peach tones, giving a clear and youthful look. Her brown hair is side-braided with gentle volume, a few loose strands falling naturally.
+      She is wearing a deep red vintage-style áo dài. The mid-length sleeves are made of sheer chiffon with a subtle flare, while the main body is crafted from lightweight linen, modest and elegant. Keep the original facial features and her gentle smile from the reference image unchanged.
+      She is sitting on a low wooden step in an outdoor Vietnamese Lunar New Year (Tết) flower market. Around her are apricot blossom trees, kumquat trees, peach blossom branches decorated with red lanterns and hanging tags with handwritten New Year wishes. Behind her are wooden stalls selling traditional Tết items (bánh chưng, bánh tét, calligraphy artwork, red envelopes), softly blurred in the background.
+      The character is holding a traditional red paper fan. Her sitting posture is graceful, legs neatly folded, with a gentle and warm expression. She is looking directly at the camera, creating a friendly and welcoming springtime feeling.
+      Outdoor setting with natural late-afternoon light at the end of the year. Soft golden sunlight shines diagonally through the Tết flowers and across her face, creating gentle shadows and a warm atmosphere—lively yet poetic.
+      The image is captured with a professional mirrorless or DSLR camera, using an 85mm lens at f/1.8 aperture. Shallow depth of field, smooth background blur of the festival scene, and round, soft bokeh created by lantern lights behind her.
+      Overall color palette is warm and rich with a strong Tết spirit—harmonious reds, yellows, and wooden browns. Photorealistic style, resembling a real-life photograph, natural skin texture, no excessive smoothing, no artificial effects.
+      Emotional tone of the image: traditional Vietnamese Tết, cozy, nostalgic, joyful spring atmosphere that feels peaceful and heartfelt.
+    `;
+
     const promptText = `
-      You are an Elite AI Art Director & Cinematic Storyboard Artist.
-      GOAL: Analyze the uploaded image to create a "Character Consistency Storyboard" with ${count} distinct scenes.
-
-      PHASE 1: CHARACTER LOCK (The Anchor)
-      Analyze and lock the following details to ensure consistency across ALL prompts:
-      1. **IDENTITY**: Exact face, age, ethnicity, skin details, hairstyle, and hair color.
-      2. **OUTFIT**: Every garment, fabric, accessory, and shoe detail.
-      3. **STYLE**: The visual aesthetic (e.g., Photorealistic, Anime, Oil Painting).
-
-      PHASE 2: STORYBOARD GENERATION
-
-      **Prompt 1: THE REFERENCE SHOT (Exact Reconstruction)**
-      - Describe the original image exactly as is.
-      - **Focus**: Accurate lighting, pose, and background from the source.
-      - **Start with**: "Frame 1 (Reference): [Full Character Description]... ensuring subject face is 99.99% identical to the reference."
-
-      **Prompt 2 to ${count}: THE CINEMATIC SCENES (Variations)**
-      - **RULE 1 (CONSISTENCY)**: The Character (Face, Body, Hair) and Outfit MUST BE IDENTICAL to Prompt 1.
-      - **RULE 2 (DIVERSITY)**: You MUST change the Scene, Angle, Framing, and Pose for each prompt.
+      You are an expert **Visual Novelist** and **Cinematic Prompt Engineer**.
       
-      **Generate diverse scenarios using these variables**:
-      - **CONTEXT (Bối cảnh)**: Change locations (e.g., Coffee Shop, Busy Street, Neon Rooftop, Luxury Interior, Beach at Sunset, Snowy Park).
-      - **CAMERA ANGLE (Góc chụp)**: Low Angle (Heroic), High Angle (Vulnerable), Dutch Angle (Dynamic), Over-the-shoulder, Eye-level.
-      - **FRAMING (Khoảng cách)**: Extreme Close-up (Eyes/Lips), Medium Shot (Waist up), Cowboy Shot (Knees up), Wide Shot (Full Body + Environment).
-      - **POSE (Dáng)**: Dynamic action (Running, Dancing), Candid (Laughing, Fixing hair), Resting (Sitting, Leaning), Editorial (High Fashion Posing).
+      **MISSION**: Analyze the uploaded image and generate ${count} prompt(s).
+      
+      **CRITICAL REQUIREMENT - EXTREME VERBOSITY**:
+      Every single prompt (including variations) must be a **massive wall of text** (200-300 words minimum).
+      
+      **REFERENCE STANDARD (TARGET LENGTH)**:
+      Your output MUST match the length, depth, and descriptive style of this text exactly:
+      """
+      ${referencePrompt}
+      """
 
-      **Structure for Prompts 2-${count}**:
-      "Cinematic shot. [Insert Character & Outfit Description from Phase 1]. The character is [Action/Pose] in [New Environment/Context]. Shot from a [Camera Angle] with [Framing]. Lighting is [Lighting Style], ensuring subject face is 99.99% identical to the reference."
+      **STRICT FORMULA FOR EVERY PROMPT (1 to ${count})**:
+      
+      1.  **THE SUBJECT (Face & Identity)**: [Minimum 4 sentences]
+          - Describe skin texture, makeup tones, specific eye shape/color, and hair details (strands, volume) like a hyper-realist painter.
+          - *For Variations*: COPY THIS SECTION EXACTLY from Prompt 1.
+          
+      2.  **THE OUTFIT (Material Physics)**: [Minimum 4 sentences]
+          - Describe fabric weight, texture (sheer, rough, silky), embroidery, stitching, transparency, and accessories.
+          - *For Variations*: COPY THIS SECTION EXACTLY from Prompt 1.
+          
+      3.  **THE ENVIRONMENT (Contextual Consistency)**: [Minimum 5 sentences]
+          - *For Prompt 1*: Describe the actual image background exactly.
+          - *For Variations*: **MAINTAIN THE SAME THEME & LOGIC**. 
+            - Do NOT change the genre (e.g., do not go from Tet Market to Cyberpunk). 
+            - Instead, describe a **different angle** or a **nearby spot** within the SAME world/location.
+            - Example: If Prompt 1 is "sitting on steps at a flower market", Prompt 2 could be "standing beneath a row of red lanterns in the same market" or "strolling past a calligraphy stall".
+            - **CRITICAL**: Keep the same lighting (e.g., golden hour), season, and color palette.
+          
+      4.  **THE POSE & ACTION**: [Minimum 3 sentences]
+          - Describe posture, hand placement, and interaction with props suitable for the new spot in the environment.
+          
+      5.  **LIGHTING & TECHNICAL SPECS**: [Minimum 3 sentences]
+          - Light sources, direction, color grading (warm, cool, cinematic).
+          - Camera gear: "Shot on Sony A7R IV, 85mm f/1.4 GM, shallow depth of field, creamy bokeh".
+
+      **OUTPUT INSTRUCTIONS**:
+      - **Prompt 1 (Master Replica)**: Describe the uploaded image exactly using the formula above.
+      - **Prompt 2 to ${count} (Logical Variations)**: 
+        - **RULE 1**: The "Subject" and "Outfit" sections MUST BE IDENTICAL to Prompt 1.
+        - **RULE 2**: The "Environment" must be a **LOGICAL EXTENSION** of the original setting. Same vibe, same place, different viewpoint.
+        - **RULE 3**: The variations must be JUST AS LONG AND DETAILED as the Master Replica.
+
+      Output strictly in JSON format.
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
@@ -99,7 +129,7 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
         parts: [imagePart, { text: promptText }]
       },
       config: {
-        temperature: 0.75, // Increased slightly for more creative variations
+        temperature: 0.75, // Slightly lowered to ensure thematic consistency while maintaining creativity
         thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: {
@@ -117,6 +147,10 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
               }
             },
             suggestions: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
+            detectedTexts: {
               type: Type.ARRAY,
               items: { type: Type.STRING }
             }
@@ -139,14 +173,18 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
   try {
     const ai = getClient();
     const promptText = `
-      Professional Prompt Optimizer.
-      GOAL: Upgrade this prompt to "Award-Winning Photography" level.
+      You are a **Prompt Expander** and **Detail Maximizer**.
+      GOAL: Take the input prompt and rewrite it to be **SIGNIFICANTLY LONGER (3x length)**, richer, and more detailed.
+      
+      INPUT PROMPT: "${originalPrompt}"
       
       INSTRUCTIONS:
-      1.  **Preserve Core Elements**: Do NOT change the description of the person or clothes.
-      2.  **Enhance Aesthetics**: Add professional keywords for lighting (e.g., volumetric lighting, rim light), texture (e.g., 8k, highly detailed), and camera gear.
-      3.  **Conciseness**: Remove redundant words, focus on visual impact.
-      4.  Input: "${originalPrompt}"
+      1.  **Explode the Details**: 
+          - Convert "red dress" -> "a flowing crimson gown made of crushed velvet with intricate gold embroidery along the hem".
+          - Convert "sunlight" -> "warm, dappled sunlight filtering through the canopy, creating dancing shadows on her skin".
+      2.  **Add Sensory Information**: Describe texture, temperature, smell (implied), and atmosphere.
+      3.  **Preserve Core Identity**: Do not change the person's face or main outfit type.
+      4.  **Format**: Return a massive, cohesive, narrative-style block of text.
     `;
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
@@ -155,7 +193,7 @@ export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem
          parts: [{ text: promptText }]
       },
       config: {
-        temperature: 0.5,
+        temperature: 0.7,
         thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: 'application/json',
         responseSchema: {
