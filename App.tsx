@@ -304,7 +304,7 @@ const App: React.FC = () => {
       // Automatically optimize the prompt at index 1 (the first variation) if it exists
       if (result.prompts.length > 1) {
           try {
-             const optimizedPrompt = await optimizePrompt(result.prompts[1].text);
+             const optimizedPrompt = await optimizePrompt(result.prompts[1].text, img.base64, img.mimeType);
              result.prompts[1] = optimizedPrompt;
           } catch(e) {
              console.warn("Failed to auto-optimize index 1", e);
@@ -324,10 +324,10 @@ const App: React.FC = () => {
   };
 
   const handleOptimize = async (index: number) => {
-    if (!analysisResult) return;
+    if (!analysisResult || !image) return;
     const originalItem = analysisResult.prompts[index];
     try {
-        const optimizedItem = await optimizePrompt(originalItem.text);
+        const optimizedItem = await optimizePrompt(originalItem.text, image.base64, image.mimeType);
         const newPrompts = [...analysisResult.prompts];
         newPrompts[index] = optimizedItem;
         const newResult = { ...analysisResult, prompts: newPrompts };
@@ -346,7 +346,7 @@ const App: React.FC = () => {
   };
 
   const handleOptimizeAll = async () => {
-    if (!analysisResult) return;
+    if (!analysisResult || !image) return;
     const currentPrompts = analysisResult.prompts;
     const indexesToOptimize: number[] = [];
     currentPrompts.forEach((p, idx) => { if ((p.score || 0) < 10) indexesToOptimize.push(idx); });
@@ -359,7 +359,7 @@ const App: React.FC = () => {
             await Promise.all(batch.map(async (index) => {
                  try {
                      const originalItem = currentPrompts[index];
-                     const optimizedItem = await optimizePrompt(originalItem.text);
+                     const optimizedItem = await optimizePrompt(originalItem.text, image.base64, image.mimeType);
                      newPrompts[index] = optimizedItem;
                  } catch (e) {
                      console.warn(`Failed to optimize prompt at index ${index}`);

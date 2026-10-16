@@ -169,28 +169,43 @@ export const decodeImagePrompt = async (base64Data: string, mimeType: string, co
   }
 };
 
-export const optimizePrompt = async (originalPrompt: string): Promise<PromptItem> => {
+export const optimizePrompt = async (originalPrompt: string, base64Data?: string, mimeType?: string): Promise<PromptItem> => {
   try {
     const ai = getClient();
+    
+    const parts: any[] = [];
+    
+    if (base64Data && mimeType) {
+      parts.push({
+        inlineData: {
+          mimeType: mimeType,
+          data: base64Data
+        }
+      });
+    }
+
     const promptText = `
-      You are a **Prompt Expander** and **Detail Maximizer**.
-      GOAL: Take the input prompt and rewrite it to be **SIGNIFICANTLY LONGER (3x length)**, richer, and more detailed.
+      You are an expert **Prompt Engineer** and **Image Analyst**.
+      GOAL: Take the input prompt and rewrite it to be **SIGNIFICANTLY MORE DETAILED**.
+      CRITICAL: The subject in the prompt MUST be described so precisely that an AI image generator will recreate the EXACT SAME PERSON and OUTFIT as seen in the reference image.
       
       INPUT PROMPT: "${originalPrompt}"
       
       INSTRUCTIONS:
-      1.  **Explode the Details**: 
-          - Convert "red dress" -> "a flowing crimson gown made of crushed velvet with intricate gold embroidery along the hem".
-          - Convert "sunlight" -> "warm, dappled sunlight filtering through the canopy, creating dancing shadows on her skin".
-      2.  **Add Sensory Information**: Describe texture, temperature, smell (implied), and atmosphere.
-      3.  **Preserve Core Identity**: Do not change the person's face or main outfit type.
-      4.  **Format**: Return a massive, cohesive, narrative-style block of text.
+      1.  **Analyze the Reference Image**: Look closely at the person/subject in the provided image.
+      2.  **Subject Accuracy (Highest Priority)**: Describe the subject's facial features, bone structure, eye shape/color, nose, lips, jawline, skin texture, makeup, and hair with extreme, hyper-realistic precision. The goal is to create a "textual deepfake" of this specific person.
+      3.  **Outfit Accuracy**: Describe the clothing, fabric, and accessories exactly as they appear in the reference image.
+      4.  **Preserve the Input Prompt's Intent**: Keep the environment, pose, and camera angles described in the INPUT PROMPT. Do NOT change the setting back to the reference image if the input prompt describes a different setting or angle.
+      5.  **Explode the Details**: Add meticulous details about lighting, atmosphere, and camera specs based on the input prompt's context.
+      6.  **Format**: Return a massive, cohesive, narrative-style block of text (200-300 words).
     `;
+
+    parts.push({ text: promptText });
 
     const response = await retryOperation<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
-         parts: [{ text: promptText }]
+         parts: parts
       },
       config: {
         temperature: 0.7,

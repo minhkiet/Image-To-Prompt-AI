@@ -131,18 +131,29 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
   const [copiedAll, setCopiedAll] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingJson, setIsExportingJson] = useState(false);
+  const [isExportingFavoritesJson, setIsExportingFavoritesJson] = useState(false);
+  const [exportedCardIndex, setExportedCardIndex] = useState<number | null>(null);
+  const [favorites, setFavorites] = useState<Record<number, boolean>>({});
   const [selectedFont, setSelectedFont] = useState<FontType>('font-mono');
   const [optimizingIndex, setOptimizingIndex] = useState<number | null>(null);
   const [isOptimizingAll, setIsOptimizingAll] = useState(false);
   const [isNoTextMode, setIsNoTextMode] = useState(false);
+  const [animationKey, setAnimationKey] = useState(0);
   
   const [currentLanguage, setCurrentLanguage] = useState<LanguageType>('en');
   const [translatedCache, setTranslatedCache] = useState<Record<number, string>>({});
   const [isTranslatingPrompts, setIsTranslatingPrompts] = useState(false);
   const hasAutoSwitchedRef = useRef(false);
+  const shouldReTranslateRef = useRef(false);
 
   const [textOverrides, setTextOverrides] = useState<Record<string, string>>({});
   const [isBatchTranslating, setIsBatchTranslating] = useState(false);
+
+  const toggleFavorite = (index: number) => {
+    setFavorites(prev => ({ ...prev, [index]: !prev[index] }));
+  };
+
+  const favoriteCount = Object.values(favorites).filter(Boolean).length;
 
   useEffect(() => {
     const initialOverrides: Record<string, string> = {};
@@ -156,6 +167,27 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     setTextOverrides(prev => ({ ...prev, [original]: newValue }));
   };
 
+  const fillTranslationCache = async (targetPrompts: PromptItem[]) => {
+    setIsTranslatingPrompts(true);
+    try {
+      const newCache = { ...translatedCache };
+      for (let i = 0; i < targetPrompts.length; i++) {
+        if (!newCache[i]) {
+          try {
+            const translated = await translateText(targetPrompts[i].text, 'vi');
+            newCache[i] = translated;
+            setTranslatedCache(prev => ({ ...prev, [i]: translated }));
+            await wait(100);
+          } catch (e) {
+            // Keep original if translation fails
+          }
+        }
+      }
+    } finally {
+      setIsTranslatingPrompts(false);
+    }
+  };
+
   const handleLanguageSwitch = async (lang: LanguageType) => {
     if (lang === currentLanguage) return;
     if (lang === 'en') {
@@ -163,27 +195,17 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
         return;
     }
     if (lang === 'vi') {
-        setIsTranslatingPrompts(true);
         setCurrentLanguage('vi'); 
-        try {
-            const newCache = { ...translatedCache };
-            for (let i = 0; i < prompts.length; i++) {
-                if (!newCache[i]) {
-                    try {
-                        const translated = await translateText(prompts[i].text, 'vi');
-                        newCache[i] = translated;
-                        setTranslatedCache(prev => ({...prev, [i]: translated}));
-                        await wait(100);
-                    } catch (e) {
-                        // Nếu lỗi, giữ nguyên text gốc
-                    }
-                }
-            }
-        } finally {
-            setIsTranslatingPrompts(false);
-        }
+        await fillTranslationCache(prompts);
     }
   };
+
+  useEffect(() => {
+    if (shouldReTranslateRef.current && currentLanguage === 'vi') {
+      shouldReTranslateRef.current = false;
+      fillTranslationCache(prompts);
+    }
+  }, [prompts]);
 
   useEffect(() => {
     if (hasAutoSwitchedRef.current) return;
@@ -339,24 +361,39 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     setIsExportingJson(true);
     try {
       const exportData = {
-        prompts: prompts.map((p, index) => ({
-          ...p,
-          finalDisplay: getDisplayPrompt(index)
-        })),
-        suggestions,
-        detectedTexts,
-        authorName,
-        meta: {
-          exportedAt: new Date().toISOString(),
-          appName: "Trình Giải Mã Prompt AI",
-          currentLanguage
-        }
+        title: "Bộ Chỉ Dẫn AI Prompt (AI Instructions Collection)",
+        application: "Trợ Lý Bé Điệu",
+        currentLanguage,
+        exportedAt: new Date().toISOString(),
+        totalPrompts: prompts.length,
+        favoriteCount,
+        metadata: {
+          authorName: authorName || undefined,
+          detectedTexts: detectedTexts.length > 0 ? detectedTexts : undefined,
+          isNoTextMode
+        },
+        prompts: prompts.map((p, index) => {
+          const display = getDisplayPrompt(index);
+          return {
+            id: index + 1,
+            label: index === 0 ? "Bản Sao Hoàn Hảo (Master Replica)" : `Biến Thể ${index}`,
+            instruction: display,
+            score: p.score || 0,
+            wordCount: display.split(/\s+/).filter(Boolean).length,
+            isFavorite: !!favorites[index]
+          };
+        }),
+        suggestions: suggestions || [],
+        usageNotes: [
+          "Dán trực tiếp câu lệnh vào Google Whisk, Midjourney, hoặc Stable Diffusion",
+          "Giữ nguyên các thông số camera và ánh sáng để bảo toàn chất lượng tái tạo"
+        ]
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `data_ai_${new Date().getTime()}.json`;
+      link.download = `ai_instructions_${new Date().getTime()}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -366,6 +403,90 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     } finally {
       setTimeout(() => setIsExportingJson(false), 2000);
     }
+  };
+
+  const handleExportFavoritesJson = () => {
+    const favIndices = prompts.map((_, i) => i).filter(i => favorites[i]);
+    if (favIndices.length === 0) return;
+
+    setIsExportingFavoritesJson(true);
+    try {
+      const exportData = {
+        title: "Danh Sách Chỉ Dẫn AI Yêu Thích (Favorite AI Instructions)",
+        application: "Trợ Lý Bé Điệu",
+        currentLanguage,
+        exportedAt: new Date().toISOString(),
+        totalFavorites: favIndices.length,
+        prompts: favIndices.map(index => {
+          const p = prompts[index];
+          const display = getDisplayPrompt(index);
+          return {
+            id: index + 1,
+            label: index === 0 ? "Bản Sao Hoàn Hảo (Master Replica)" : `Biến Thể ${index}`,
+            instruction: display,
+            score: p.score || 0,
+            wordCount: display.split(/\s+/).filter(Boolean).length,
+            isFavorite: true
+          };
+        }),
+        metadata: {
+          authorName: authorName || undefined,
+          detectedTexts: detectedTexts.length > 0 ? detectedTexts : undefined
+        },
+        usageNotes: [
+          "Các câu prompt đã được đánh dấu yêu thích để tạo ảnh chất lượng cao",
+          "Dán trực tiếp vào các mô hình tạo ảnh AI (Google Whisk, Midjourney v6, SDXL)"
+        ]
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `favorite_ai_instructions_${new Date().getTime()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Favorite JSON Export failed", err);
+    } finally {
+      setTimeout(() => setIsExportingFavoritesJson(false), 2000);
+    }
+  };
+
+  const handleExportSingleJson = (index: number) => {
+    const p = prompts[index];
+    const displayPrompt = getDisplayPrompt(index);
+    const isMain = index === 0;
+
+    const data = {
+      title: isMain ? "Bản Sao Hoàn Hảo (Master AI Instruction)" : `Biến Thể ${index} (AI Instruction)`,
+      instruction: displayPrompt,
+      score: p.score || 0,
+      wordCount: displayPrompt.split(/\s+/).filter(Boolean).length,
+      isFavorite: !!favorites[index],
+      language: currentLanguage,
+      author: authorName || undefined,
+      detectedTexts: detectedTexts.length > 0 ? detectedTexts : undefined,
+      exportedAt: new Date().toISOString(),
+      application: "Trợ Lý Bé Điệu - AI Studio",
+      usageNotes: "Dán prompt vào Google Whisk hoặc Midjourney để tái tạo phong cách ảnh."
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const namePrefix = isMain ? "master_instruction" : `variation_${index}_instruction`;
+    link.download = `${namePrefix}_${new Date().getTime()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setExportedCardIndex(index);
+    setTimeout(() => setExportedCardIndex(null), 2000);
   };
 
   const handleUsePrompt = (index: number) => {
@@ -378,12 +499,19 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
     setOptimizingIndex(index);
     try {
       await onOptimize(index);
-      if (translatedCache[index]) {
-          const newCache = { ...translatedCache };
-          delete newCache[index];
-          setTranslatedCache(newCache);
-          if (currentLanguage === 'vi') setCurrentLanguage('en'); 
+      
+      // Clear cache for this item to force re-translation
+      const newCache = { ...translatedCache };
+      delete newCache[index];
+      setTranslatedCache(newCache);
+      
+      // Signal re-translation if in VI mode
+      if (currentLanguage === 'vi') {
+        shouldReTranslateRef.current = true;
       }
+      
+      // Trigger re-animation
+      setAnimationKey(prev => prev + 1);
     } finally {
       setOptimizingIndex(null);
     }
@@ -391,12 +519,25 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
 
   const handleOptimizeAllClick = async () => {
     if (isOptimizingAll || optimizingIndex !== null) return;
-    if (!prompts.some(p => (p.score || 0) < 10)) return;
+    const targets = prompts.map((p, i) => (p.score || 0) < 10 ? i : -1).filter(i => i !== -1);
+    if (targets.length === 0) return;
+    
     setIsOptimizingAll(true);
     try {
       await onOptimizeAll();
-      setTranslatedCache({});
-      if (currentLanguage === 'vi') setCurrentLanguage('en');
+      
+      // Clear cache for optimized items
+      const newCache = { ...translatedCache };
+      targets.forEach(idx => delete newCache[idx]);
+      setTranslatedCache(newCache);
+      
+      // Signal re-translation if in VI mode
+      if (currentLanguage === 'vi') {
+        shouldReTranslateRef.current = true;
+      }
+      
+      // Trigger re-animation
+      setAnimationKey(prev => prev + 1);
     } finally {
       setIsOptimizingAll(false);
     }
@@ -479,9 +620,24 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                 </KawaiiButton>
              )}
 
+             {favoriteCount > 0 && (
+                <KawaiiButton color="yellow" onClick={handleExportFavoritesJson} active={isExportingFavoritesJson} className="animate-bounce-subtle">
+                    {isExportingFavoritesJson ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    )}
+                    <span>{isExportingFavoritesJson ? "Đã lưu!" : `Yêu thích (${favoriteCount}) .JSON`}</span>
+                </KawaiiButton>
+             )}
+
              <KawaiiButton color="teal" onClick={handleExportJson} active={isExportingJson}>
-                {isExportingJson ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>}
-                <span className="hidden sm:inline">{isExportingJson ? "Đã xuất!" : "JSON"}</span>
+                {isExportingJson ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>}
+                <span className="hidden sm:inline">{isExportingJson ? "Đã lưu!" : "Lưu tất cả .JSON"}</span>
              </KawaiiButton>
 
              <KawaiiButton color="blue" onClick={handleExportTxt} active={isExporting}>
@@ -532,7 +688,7 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
       )}
       </AnimatePresence>
 
-      <MotionDiv initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }} className="grid grid-cols-1 lg:grid-cols-2 gap-6" >
+      <MotionDiv key={animationKey} initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }} className="grid grid-cols-1 lg:grid-cols-2 gap-6" >
         {prompts.map((promptItem, index) => {
           const isMain = index === 0;
           const displayPromptText = getDisplayPrompt(index);
@@ -540,7 +696,12 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
           const isWaitingTranslation = currentLanguage === 'vi' && isTranslatingPrompts && !translatedCache[index];
 
           return (
-            <MotionDiv key={index} variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -5 }} className={`kawaii-card overflow-hidden flex flex-col group ${isMain ? 'lg:col-span-2 border-pink-100' : 'border-gray-50'}`} >
+            <MotionDiv 
+              key={index} 
+              variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} 
+              whileHover={{ y: -5 }} 
+              className={`kawaii-card overflow-hidden flex flex-col group ${isMain ? 'lg:col-span-2 border-pink-100' : 'border-gray-50'}`} 
+            >
               <div className={`px-6 py-4 border-b-2 flex items-center justify-between ${isMain ? 'bg-pink-50/30' : 'bg-gray-50/20'}`}>
                  <div className="flex items-center gap-3">
                     <span className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-black shadow-inner ring-4 ring-white ${isMain ? 'bg-pink-300 text-white' : 'bg-gray-200 text-gray-400'}`}>{index + 1}</span>
@@ -559,6 +720,35 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                     </div>
                  </div>
                  <div className="flex items-center gap-2">
+                     <MotionButton 
+                        onClick={() => toggleFavorite(index)} 
+                        whileHover={{ scale: 1.15 }}
+                        whileTap={{ scale: 0.9 }}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all cursor-pointer ${favorites[index] ? 'bg-amber-100 text-amber-500 border-amber-300 shadow-sm' : 'bg-white text-gray-300 hover:text-amber-400 hover:border-amber-200 border-gray-100'}`} 
+                        title={favorites[index] ? "Bỏ yêu thích câu lệnh này" : "Đánh dấu câu lệnh yêu thích"}
+                     >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill={favorites[index] ? "currentColor" : "none"} stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={favorites[index] ? "0" : "2"} d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                     </MotionButton>
+
+                     <MotionButton 
+                        onClick={() => handleExportSingleJson(index)} 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all cursor-pointer ${exportedCardIndex === index ? 'bg-teal-100 text-teal-600 border-teal-200' : 'bg-white text-gray-300 hover:text-teal-500 hover:border-teal-200 border-gray-100'}`} 
+                        title="Tải câu lệnh này về máy dạng file JSON"
+                     >
+                        {exportedCardIndex === index ? (
+                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                           </svg>
+                        ) : (
+                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                           </svg>
+                        )}
+                     </MotionButton>
                      {(promptItem.score || 0) < 9 && currentLanguage === 'en' && (
                          <MotionButton onClick={() => handleOptimizeClick(index)} disabled={optimizingIndex === index || isOptimizingAll} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all cursor-pointer ${isOptimizingThis ? 'bg-yellow-100 text-yellow-400' : 'bg-white text-yellow-500 hover:bg-yellow-500 hover:text-white border-yellow-100'}`} title="Tối ưu">
                             {isOptimizingThis ? <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
@@ -576,9 +766,28 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, suggestio
                     <p className={`${selectedFont} text-sm leading-relaxed text-gray-600 selection:bg-pink-100`}>{displayPromptText}</p>
                 )}
               </div>
-              <div className="px-6 py-2 bg-gray-50/30 border-t flex items-center justify-between gap-3">
-                 <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{displayPromptText.split(/\s+/).length} từ</span>
-                 <button onClick={() => handleUsePrompt(index)} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-gray-100 text-[10px] font-black text-gray-400 hover:text-indigo-500 hover:border-indigo-100 transition-all uppercase tracking-tighter cursor-pointer"><span>Dùng trên Whisk</span><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></button>
+              <div className="px-6 py-2.5 bg-gray-50/30 border-t flex items-center justify-between gap-3">
+                 <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">{displayPromptText.split(/\s+/).length} từ</span>
+                    {favorites[index] && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shadow-sm animate-fade-in">
+                        ⭐ Yêu thích
+                      </span>
+                    )}
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleExportSingleJson(index)} 
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-100 text-[10px] font-black text-gray-400 hover:text-teal-600 hover:border-teal-200 transition-all uppercase tracking-tighter cursor-pointer shadow-sm hover:shadow"
+                      title="Lưu câu lệnh này dưới dạng file JSON"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      <span>{exportedCardIndex === index ? "Đã lưu!" : "Lưu .JSON"}</span>
+                    </button>
+                    <button onClick={() => handleUsePrompt(index)} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-gray-100 text-[10px] font-black text-gray-400 hover:text-indigo-500 hover:border-indigo-100 transition-all uppercase tracking-tighter cursor-pointer"><span>Dùng trên Whisk</span><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></button>
+                 </div>
               </div>
             </MotionDiv>
           );
