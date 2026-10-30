@@ -3,5 +3,8 @@
   "description": "Tải lên hình ảnh được tạo bởi AI để trích xuất prompt gốc.",
   "requestFramePermissions": [
     "clipboard-read"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }

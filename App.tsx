@@ -8,6 +8,7 @@ import { SuggestionsDisplay } from './components/SuggestionsDisplay';
 import { WhiskGuide } from './components/WhiskGuide';
 import { HistoryList } from './components/HistoryList';
 import { ImageInspector } from './components/ImageInspector';
+import { FallingStars } from './components/FallingStars';
 import { decodeImagePrompt, optimizePrompt, translateText, wait } from './services/geminiService';
 import { ImageFile, AppState, AnalysisResult, HistoryItem, PromptItem } from './types';
 
@@ -474,8 +475,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans selection:bg-pink-100 selection:text-pink-600 relative">
-      <div className="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen flex flex-col font-sans selection:bg-pink-100 selection:text-pink-600 relative overflow-x-hidden">
+      <FallingStars />
+      <div className="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 relative z-10">
         <Header />
         <div className="mt-8 mb-12 relative min-h-[400px]">
           <AnimatePresence mode="wait" initial={false}>
